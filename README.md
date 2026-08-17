@@ -29,7 +29,7 @@ A comprehensive frame window tracking, HUD customization, and $L^*$ (NaNDL Preci
 * **Timeline Tracking:** Automatically highlights and scrolls to the active frame in real-time as the level plays.
 * **Dual Player (1P/2P) Control:** Toggle individual action player assignments on the fly.
 * **Import & Export:**
-  * Import replay/macro files (`.gdr`, `.gdr2`, `.slc`, `.json`, `.fwc`).
+  * Import replay/macro files (`.gdr`, `.gdr2`, `.slc`, `.json`, `.fwc`， `.tcm`).
   * Export custom binary `.fwc` and NaNDL `.json` project files.
 * **Automated Safety Backups:** Background autosaves generated periodically to the Geode config directory.
 
