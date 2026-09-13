@@ -326,6 +326,67 @@ class $modify(MyPlayLayer, PlayLayer) {
         }
     }
 
+    void playHUDCountAnimation(int presetId) {
+        auto it = m_fields->m_countLabels.find(presetId);
+        if (it == m_fields->m_countLabels.end() || !it->second) return;
+
+        auto countLbl = it->second;
+
+        std::string idStr = std::to_string(presetId);
+        ccColor3B origColor = { 255, 255, 255 };
+        if (g_labelPresets.contains(idStr)) {
+            auto& p = g_labelPresets[idStr];
+            origColor = {
+                static_cast<GLubyte>(p.color.r * 255),
+                static_cast<GLubyte>(p.color.g * 255),
+                static_cast<GLubyte>(p.color.b * 255)
+            };
+        }
+
+        constexpr int TAG_SCALE = 1001;
+        constexpr int TAG_TINT = 1002;
+        countLbl->stopActionByTag(TAG_SCALE);
+        countLbl->stopActionByTag(TAG_TINT);
+        countLbl->setScale(0.5f);
+        countLbl->setColor(origColor);
+
+        // 1. 点击回弹放大缩小
+        auto scaleUp = CCEaseSineOut::create(CCScaleTo::create(0.06f, 0.65f));
+        auto scaleDown = CCEaseSineIn::create(CCScaleTo::create(0.12f, 0.5f));
+        auto scaleSeq = CCSequence::create(scaleUp, scaleDown, nullptr);
+        scaleSeq->setTag(TAG_SCALE);
+        countLbl->runAction(scaleSeq);
+
+        // 2. 纯白高光后过渡回原色
+        countLbl->setColor({ 255, 255, 255 });
+        auto tintAction = CCTintTo::create(0.18f, origColor.r, origColor.g, origColor.b);
+        tintAction->setTag(TAG_TINT);
+        countLbl->runAction(tintAction);
+
+        // 3. 叠加泛光扩散消散
+        if (m_fields->m_hudNode) {
+            auto glowLbl = CCLabelBMFont::create(countLbl->getString(), "bigFont.fnt");
+            glowLbl->setAnchorPoint(countLbl->getAnchorPoint());
+            glowLbl->setPosition(countLbl->getPosition());
+            glowLbl->setScale(0.5f);
+            glowLbl->setColor({ 255, 255, 255 });
+            glowLbl->setOpacity(230);
+            glowLbl->setBlendFunc({ GL_SRC_ALPHA, GL_ONE });
+
+            auto glowScale = CCEaseSineOut::create(CCScaleTo::create(0.20f, 0.75f));
+            auto glowFade = CCSequence::create(
+                CCFadeTo::create(0.04f, 255),
+                CCFadeOut::create(0.16f),
+                nullptr
+            );
+            auto glowSpawn = CCSpawn::create(glowScale, glowFade, nullptr);
+            auto glowSeq = CCSequence::create(glowSpawn, CCRemoveSelf::create(), nullptr);
+            glowLbl->runAction(glowSeq);
+
+            m_fields->m_hudNode->addChild(glowLbl, 10);
+        }
+    }
+
     void updateAndCleanMarkers() {
         if (!this->m_objectLayer) return;
 
@@ -400,6 +461,7 @@ class $modify(MyPlayLayer, PlayLayer) {
                 if (currentFrame > m_fields->m_lastFrame) {
                     bool skipAudio = (currentFrame - m_fields->m_lastFrame > static_cast<int>(g_macroFps));
                     bool needsHudUpdate = false;
+                    std::vector<int> updatedPresets;
 
                     auto it = std::upper_bound(g_tickActionsCache.begin(), g_tickActionsCache.end(), m_fields->m_lastFrame,
                         [](int frame, const FrameAction& a) { return frame < a.frame; });
@@ -455,6 +517,7 @@ class $modify(MyPlayLayer, PlayLayer) {
                                     m_fields->m_hudCounts[preset.id]++;
                                     if (preset.showInHud) {
                                         needsHudUpdate = true;
+                                        updatedPresets.push_back(preset.id);
                                     }
                                 }
                             }
@@ -463,7 +526,16 @@ class $modify(MyPlayLayer, PlayLayer) {
                     }
 
                     m_fields->m_lastFrame = currentFrame;
-                    if (needsHudUpdate) this->updateHUDCounts();
+                    if (needsHudUpdate) {
+                        this->updateHUDCounts();
+                        if (!skipAudio) {
+                            std::sort(updatedPresets.begin(), updatedPresets.end());
+                            updatedPresets.erase(std::unique(updatedPresets.begin(), updatedPresets.end()), updatedPresets.end());
+                            for (int id : updatedPresets) {
+                                this->playHUDCountAnimation(id);
+                            }
+                        }
+                    }
                 }
                 this->updateAndCleanMarkers();
             }
