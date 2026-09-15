@@ -72,9 +72,9 @@ class $modify(MyPlayLayer, PlayLayer) {
         for (const auto& action : g_tickActionsCache) {
             if (action.shouldDraw && action.frame <= m_fields->m_lastFrame) {
                 double fw = action.frameWindow;
-                double sw = static_cast<double>(action.swift);
+                double ifVal = static_cast<double>(action.ifCount);
                 for (const auto& [idStr, preset] : g_labelPresets) {
-                    double targetVal = preset.useSwift ? sw : fw;
+                    double targetVal = preset.useIF ? ifVal : fw;
                     if (targetVal >= preset.minVal && targetVal <= preset.maxVal) {
                         m_fields->m_hudCounts[preset.id]++;
                     }
@@ -106,9 +106,9 @@ class $modify(MyPlayLayer, PlayLayer) {
         for (const auto& action : g_tickActionsCache) {
             if (action.shouldDraw && action.frame <= m_fields->m_lastFrame) {
                 double fw = action.frameWindow;
-                double sw = static_cast<double>(action.swift);
+                double ifVal = static_cast<double>(action.ifCount);
                 for (const auto& [idStr, preset] : g_labelPresets) {
-                    double targetVal = preset.useSwift ? sw : fw;
+                    double targetVal = preset.useIF ? ifVal : fw;
                     if (targetVal >= preset.minVal && targetVal <= preset.maxVal) {
                         m_fields->m_hudCounts[preset.id]++;
                     }
@@ -449,9 +449,9 @@ class $modify(MyPlayLayer, PlayLayer) {
                     for (const auto& action : g_tickActionsCache) {
                         if (action.shouldDraw && action.frame <= m_fields->m_lastFrame) {
                             double fw = action.frameWindow;
-                            double sw = static_cast<double>(action.swift);
+                            double ifVal = static_cast<double>(action.ifCount);
                             for (const auto& [idStr, preset] : g_labelPresets) {
-                                double targetVal = preset.useSwift ? sw : fw;
+                                double targetVal = preset.useIF ? ifVal : fw;
                                 if (targetVal >= preset.minVal && targetVal <= preset.maxVal) {
                                     m_fields->m_hudCounts[preset.id]++;
                                 }
@@ -473,13 +473,17 @@ class $modify(MyPlayLayer, PlayLayer) {
                         auto& action = *it;
                         if (action.shouldDraw) {
                             double fw = action.frameWindow;
-                            int sw = action.swift;
+                            int ifVal = action.ifCount;
                             ccColor4F markerColor = { 1.f, 1.f, 1.f, 1.f };
 
-                            std::string markerText = formatWindowVal(fw) + std::string(std::max(0, sw), '!');
+                            // 默认显示：当 I/F > 1 时附带 (nI/F) 标识
+                            std::string markerText = formatWindowVal(fw);
+                            if (ifVal > 1) {
+                                markerText += fmt::format(" ({}I/F)", ifVal);
+                            }
 
-                            // 基于 (swift, window) 二维联合查询预设
-                            std::string presetKey = makeWindowPresetKey(sw, fw);
+                            // 基于 (ifCount, window) 二维联合查询预设
+                            std::string presetKey = makeWindowPresetKey(ifVal, fw);
                             if (g_windowPresets.contains(presetKey)) {
                                 auto& preset = g_windowPresets[presetKey];
                                 markerColor = preset.color;
@@ -511,9 +515,9 @@ class $modify(MyPlayLayer, PlayLayer) {
                                 this->spawnFrameWindowMarker(spawnPos, markerText, markerColor);
                             }
 
-                            // HUD 与音效：根据 useSwift 独立统计 Swift 或 Frame Window
+                            // HUD 与音效：根据 useIF 独立统计 I/F 或 Frame Window
                             for (auto& [idStr, preset] : g_labelPresets) {
-                                double targetVal = preset.useSwift ? static_cast<double>(sw) : fw;
+                                double targetVal = preset.useIF ? static_cast<double>(ifVal) : fw;
                                 if (targetVal >= preset.minVal && targetVal <= preset.maxVal) {
                                     if (!skipAudio && !preset.audioPath.empty() && preset.showInHud) {
                                         SoundManager::playSound(preset.audioPath);
@@ -546,7 +550,7 @@ class $modify(MyPlayLayer, PlayLayer) {
         }
     }
 
-    void spawnFrameWindowMarker(CCPoint pos, const std::string& displayStr, ccColor4F color) {
+    void spawnFrameWindowMarker(CCPoint pos, const std::string & displayStr, ccColor4F color) {
         auto markerNode = CCNode::create();
         markerNode->setID("frame-window-marker"_spr);
 

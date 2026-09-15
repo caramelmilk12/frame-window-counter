@@ -56,15 +56,48 @@ namespace FileIO {
                     if (isJson) {
                         std::vector<matjson::Value> arr;
                         int inputCounter = 1;
-                        for (auto& act : exportList) {
+
+                        for (const auto& act : exportList) {
                             if (!act.shouldDraw) continue;
-                            arr.push_back(matjson::makeObject({
-                                {"input", inputCounter++},
-                                {"timePosition", act.frame},
-                                {"frameWindow", (act.frameWindow <= 0.0) ? 1.0 : act.frameWindow},
-                                {"swift", act.swift}
-                                }));
+
+                            int k = act.ifCount > 0 ? act.ifCount : 1;
+                            double fw = (act.frameWindow <= 0.0) ? 1.0 : act.frameWindow;
+                            int playerNum = act.isPlayer2 ? 2 : 1;
+
+                            if (k <= 1) {
+                                // 普通输入，导出单个窗口
+                                arr.push_back(matjson::makeObject({
+                                    {"input", inputCounter++},
+                                    {"timePosition", act.frame},
+                                    {"frameWindow", fw},
+                                    {"isPlayer2", act.isPlayer2}
+                                    }));
+                            }
+                            else {
+                                // I/F > 1 时解包为 k 个微窗口
+                                double w_main = std::max(fw - (k - 1.0) / k, 1.0 / k);
+                                double w_sub = 1.0 / k;
+
+                                // 1. 首个主窗口
+                                arr.push_back(matjson::makeObject({
+                                    {"input", inputCounter++},
+                                    {"timePosition", act.frame},
+                                    {"frameWindow", w_main},
+                                    {"isPlayer2", act.isPlayer2}
+                                    }));
+
+                                // 2. 后续 k - 1 个次级窗口
+                                for (int s = 0; s < k - 1; ++s) {
+                                    arr.push_back(matjson::makeObject({
+                                        {"input", inputCounter++},
+                                        {"timePosition", act.frame},
+                                        {"frameWindow", w_sub},
+                                        {"isPlayer2", act.isPlayer2}
+                                        }));
+                                }
+                            }
                         }
+
                         matjson::Value rootObject = matjson::makeObject({
                             {"format", "nandl-calculator"},
                             {"version", 1},
@@ -79,7 +112,7 @@ namespace FileIO {
                         f << rootObject.dump(2);
                     }
                     else {
-                        // 写入 FWC2：带有 swift (4 字节 int32_t)
+                        // 写入 FWC2：带有 ifCount (4 字节 int32_t)
                         f.write("FWC2", 4);
                         double fps = g_macroFps;
                         f.write(reinterpret_cast<const char*>(&fps), sizeof(double));
@@ -90,12 +123,12 @@ namespace FileIO {
                             int32_t frame = act.frame;
                             double frameWindow = act.frameWindow;
                             uint8_t flags = (act.shouldDraw ? 1 : 0) | (act.isPlayer2 ? 2 : 0);
-                            int32_t swift = act.swift;
+                            int32_t ifCount = act.ifCount;
 
                             f.write(reinterpret_cast<const char*>(&frame), sizeof(int32_t));
                             f.write(reinterpret_cast<const char*>(&frameWindow), sizeof(double));
                             f.write(reinterpret_cast<const char*>(&flags), sizeof(uint8_t));
-                            f.write(reinterpret_cast<const char*>(&swift), sizeof(int32_t));
+                            f.write(reinterpret_cast<const char*>(&ifCount), sizeof(int32_t));
                         }
                     }
                     f.close();
@@ -167,7 +200,7 @@ namespace FileIO {
                             int32_t frame = 0;
                             double frameWindow = 1.0;
                             uint8_t flags = 0;
-                            int32_t swift = 0;
+                            int32_t ifCount = 1;
 
                             f.read(reinterpret_cast<char*>(&frame), sizeof(int32_t));
                             if (isLegacy) {
@@ -180,12 +213,13 @@ namespace FileIO {
                             }
                             f.read(reinterpret_cast<char*>(&flags), sizeof(uint8_t));
 
-                            // 非旧版 FWCB 时读取 swift 维度
+                            // 读取 I/F (保底为 1)
                             if (!isLegacy) {
-                                f.read(reinterpret_cast<char*>(&swift), sizeof(int32_t));
+                                f.read(reinterpret_cast<char*>(&ifCount), sizeof(int32_t));
+                                if (ifCount < 1) ifCount = 1;
                             }
 
-                            newActions.push_back({ frame, (flags & 1) != 0, frameWindow, (flags & 2) != 0, swift });
+                            newActions.push_back({ frame, (flags & 1) != 0, frameWindow, (flags & 2) != 0, ifCount });
                         }
                     }
                     else if (ext == ".json") {
@@ -205,8 +239,25 @@ namespace FileIO {
                                     act.frame = static_cast<int>(item["timePosition"].asInt().unwrapOr(0));
                                     act.shouldDraw = true;
                                     act.frameWindow = item["frameWindow"].asDouble().unwrapOr(1.0);
-                                    act.isPlayer2 = false;
-                                    act.swift = item["swift"].asInt().unwrapOr(0);
+
+                                    // 解析 1P / 2P 字段
+                                    bool isP2 = false;
+                                    if (item.contains("isPlayer2")) {
+                                        isP2 = item["isPlayer2"].asBool().unwrapOr(false);
+                                    }
+                                    act.isPlayer2 = isP2;
+
+                                    int ifVal = 1;
+                                    if (item.contains("if")) {
+                                        ifVal = item["if"].asInt().unwrapOr(1);
+                                    }
+                                    else if (item.contains("swift")) {
+                                        int oldSwift = item["swift"].asInt().unwrapOr(0);
+                                        ifVal = oldSwift <= 0 ? 1 : (oldSwift + 1);
+                                    }
+                                    if (ifVal < 1) ifVal = 1;
+                                    act.ifCount = ifVal;
+
                                     newActions.push_back(act);
                                 }
                             }
@@ -224,7 +275,7 @@ namespace FileIO {
                         for (const auto& atomVariant : replay.m_atoms.m_atoms) {
                             if (const auto* actionAtom = std::get_if<slc::ActionAtom>(&atomVariant)) {
                                 for (const auto& action : actionAtom->m_actions) {
-                                    newActions.push_back({ static_cast<int>(action.m_frame), false, 1.0, action.m_player2, 0 });
+                                    newActions.push_back({ static_cast<int>(action.m_frame), false, 1.0, action.m_player2, 1 });
                                 }
                             }
                         }
@@ -258,7 +309,7 @@ namespace FileIO {
                         }
                         std::sort(inputs.begin(), inputs.end(), [](const auto& a, const auto& b) { return a.frame < b.frame; });
                         for (const auto& input : inputs) {
-                            newActions.push_back({ static_cast<int>(input.frame), false, 1.0, input.player2, 0 });
+                            newActions.push_back({ static_cast<int>(input.frame), false, 1.0, input.player2, 1 });
                         }
                     }
 

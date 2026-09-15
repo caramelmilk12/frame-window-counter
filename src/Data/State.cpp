@@ -9,7 +9,7 @@
 
 using namespace geode::prelude;
 
-//全局状态与数据缓存定义
+// 全局状态与数据缓存定义
 std::map<std::string, FrameWindowPreset> g_windowPresets;   // 窗口颜色预设
 std::map<std::string, LabelPreset> g_labelPresets;          // 标签区间与音效预设
 std::map<std::string, FrameAction> g_frameActions;          // 核心帧动作 Map
@@ -19,10 +19,10 @@ std::vector<FrameAction> g_validActions;                    // 参与 L* 求解�
 bool g_modEnabled = true;                                   // Mod 总开关
 bool g_showBase = true, g_showN = false, g_showF = false, g_showC = false;
 bool g_showNF = false, g_showNC = false, g_showFC = false, g_showNFC = false;
-bool g_forcePrecRedraw = true;                              // 强制重绘Precision HUD标记
+bool g_forcePrecRedraw = true;                              // 强制重绘 Precision HUD 标记
 int g_finalLStarDisplayMode = 0;                            // 编辑器顶部 L* 切换显示模式
 
-//L* 计算参数
+// L* 计算参数
 double g_macroFps = DEFAULT_MACRO_FPS;
 double g_respawnTime = DEFAULT_RESPAWN_TIME;
 double g_targetTime = DEFAULT_TARGET_TIME;
@@ -30,14 +30,14 @@ double g_kT = DEFAULT_K_T;
 double g_kU = DEFAULT_K_U;
 double g_kC = DEFAULT_K_C;
 
-//多线程计算同步原子变量
-std::atomic<int> g_calcId{ 0 };                             // 当前计算任务唯一ID
+// 多线程计算同步原子变量
+std::atomic<int> g_calcId{ 0 };                             // 当前计算任务唯一 ID
 std::atomic<bool> g_isCalculating{ false };                 // 是否正在计算中
 std::atomic<float> g_calcProgress{ 0.0f };                  // 总体百分比计算进度
-std::atomic<bool> g_isLStarDirty{ false };                  // 参数/动作改动标记（用于驱动UI标红）
+std::atomic<bool> g_isLStarDirty{ false };                  // 参数/动作改动标记（驱动 UI 变红）
 std::chrono::steady_clock::time_point g_lastAutoSaveTime = std::chrono::steady_clock::now();
 
-//8个不同模式的逐帧精度曲线结果数组
+// 8 个不同模式的逐帧精度曲线结果数组
 std::vector<double> g_vBase, g_vN, g_vF, g_vC, g_vNF, g_vNC, g_vFC, g_vNFC;
 
 void resetCalcSettingsToDefault() {
@@ -84,11 +84,11 @@ void loadModData() {
         if (!g_labelPresets.contains(key)) {
             LabelPreset p;
             p.id = i;
-            p.useSwift = false;
+            p.useIF = false;
             p.minWindowStr = "";
             p.maxWindowStr = "";
-            p.minSwiftStr = "";
-            p.maxSwiftStr = "";
+            p.minIFStr = "";
+            p.maxIFStr = "";
             p.text = std::to_string(i);
             p.audioPath = "";
             p.color = { 1.f, 1.f, 1.f, 1.f };
@@ -181,12 +181,12 @@ void doAutoSave(GJGameLevel* level) {
                 int32_t frame = act.frame;
                 double frameWindow = act.frameWindow;
                 uint8_t flags = (act.shouldDraw ? 1 : 0) | (act.isPlayer2 ? 2 : 0);
-                int32_t swift = act.swift;
+                int32_t ifCount = act.ifCount;
 
                 f.write(reinterpret_cast<const char*>(&frame), sizeof(int32_t));
                 f.write(reinterpret_cast<const char*>(&frameWindow), sizeof(double));
                 f.write(reinterpret_cast<const char*>(&flags), sizeof(uint8_t));
-                f.write(reinterpret_cast<const char*>(&swift), sizeof(int32_t));
+                f.write(reinterpret_cast<const char*>(&ifCount), sizeof(int32_t));
             }
             f.close();
             geode::Loader::get()->queueInMainThread([]() {

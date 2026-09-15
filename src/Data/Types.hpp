@@ -10,7 +10,7 @@ struct MyReplay : gdr::Replay<MyReplay, gdr::Input<>> {
 };
 
 struct FrameWindowPreset {
-    int swift = 0;                                          // 所属 Swift 维度
+    int ifCount = 1;                                        // 所属 I/F 维度 (Inputs per Frame)
     double window = 1.0;
     cocos2d::ccColor4F color = { 1.f, 1.f, 1.f, 1.f };
     std::string customText = "";
@@ -51,7 +51,18 @@ struct matjson::Serialize<FrameWindowPreset> {
     static geode::Result<FrameWindowPreset> fromJson(matjson::Value const& value) {
         if (!value.isObject()) return geode::Err("Expected object");
         FrameWindowPreset p;
-        p.swift = value["swift"].asInt().unwrapOr(0);
+        if (value.contains("if")) {
+            p.ifCount = value["if"].asInt().unwrapOr(1);
+        }
+        else if (value.contains("swift")) {
+            int oldSw = value["swift"].asInt().unwrapOr(0);
+            p.ifCount = oldSw <= 0 ? 1 : (oldSw + 1);
+        }
+        else {
+            p.ifCount = 1;
+        }
+        if (p.ifCount < 1) p.ifCount = 1;
+
         p.window = value["window"].asDouble().unwrapOr(1.0);
         p.color.r = static_cast<float>(value["r"].asDouble().unwrapOr(1.0));
         p.color.g = static_cast<float>(value["g"].asDouble().unwrapOr(1.0));
@@ -62,7 +73,7 @@ struct matjson::Serialize<FrameWindowPreset> {
     }
     static matjson::Value toJson(FrameWindowPreset const& p) {
         return matjson::makeObject({
-            {"swift", p.swift},
+            {"if", p.ifCount},
             {"window", p.window},
             {"r", static_cast<double>(p.color.r)},
             {"g", static_cast<double>(p.color.g)},
@@ -75,11 +86,11 @@ struct matjson::Serialize<FrameWindowPreset> {
 
 struct LabelPreset {
     int id = 1;
-    bool useSwift = false;                                  // 是否处于 Swift 模式（独立统计 Swift，而非 Frame Window）
+    bool useIF = false;                                     // 是否处于 I/F 模式（独立统计 I/F，而非 Frame Window）
     std::string minWindowStr = "";                          // Frame Window 最小值表达式
     std::string maxWindowStr = "";                          // Frame Window 最大值表达式
-    std::string minSwiftStr = "";                           // Swift 最小值表达式
-    std::string maxSwiftStr = "";                           // Swift 最大值表达式
+    std::string minIFStr = "";                              // I/F 最小值表达式
+    std::string maxIFStr = "";                              // I/F 最大值表达式
     std::string text = "Label";
     std::string audioPath = "";
     cocos2d::ccColor4F color = { 1.f, 1.f, 1.f, 1.f };
@@ -88,9 +99,9 @@ struct LabelPreset {
     double maxVal = 999999.0;
 
     void updateBounds() {
-        if (useSwift) {
-            minVal = parseWindowExpr(minSwiftStr, 0.0);
-            maxVal = parseWindowExpr(maxSwiftStr, 999999.0);
+        if (useIF) {
+            minVal = parseWindowExpr(minIFStr, 1.0);
+            maxVal = parseWindowExpr(maxIFStr, 999999.0);
         }
         else {
             minVal = parseWindowExpr(minWindowStr, 0.0);
@@ -105,11 +116,11 @@ struct matjson::Serialize<LabelPreset> {
         if (!value.isObject()) return geode::Err("Expected object");
         LabelPreset p;
         p.id = value["id"].asInt().unwrapOr(1);
-        p.useSwift = value["useSwift"].asBool().unwrapOr(false);
+        p.useIF = value["useIF"].asBool().unwrapOr(value["useSwift"].asBool().unwrapOr(false));
         p.minWindowStr = value["minW"].asString().unwrapOr("");
         p.maxWindowStr = value["maxW"].asString().unwrapOr("");
-        p.minSwiftStr = value["minSwift"].asString().unwrapOr("");
-        p.maxSwiftStr = value["maxSwift"].asString().unwrapOr("");
+        p.minIFStr = value["minIF"].asString().unwrapOr(value["minSwift"].asString().unwrapOr(""));
+        p.maxIFStr = value["maxIF"].asString().unwrapOr(value["maxSwift"].asString().unwrapOr(""));
         p.text = value["text"].asString().unwrapOr("1");
         p.audioPath = value["audioPath"].asString().unwrapOr("");
         p.color.r = static_cast<float>(value["r"].asDouble().unwrapOr(1.0));
@@ -123,11 +134,11 @@ struct matjson::Serialize<LabelPreset> {
     static matjson::Value toJson(LabelPreset const& p) {
         return matjson::makeObject({
             {"id", p.id},
-            {"useSwift", p.useSwift},
+            {"useIF", p.useIF},
             {"minW", p.minWindowStr},
             {"maxW", p.maxWindowStr},
-            {"minSwift", p.minSwiftStr},
-            {"maxSwift", p.maxSwiftStr},
+            {"minIF", p.minIFStr},
+            {"maxIF", p.maxIFStr},
             {"text", p.text},
             {"audioPath", p.audioPath},
             {"r", static_cast<double>(p.color.r)},
@@ -144,5 +155,5 @@ struct FrameAction {
     bool shouldDraw = true;
     double frameWindow = 1.0;
     bool isPlayer2 = false;
-    int swift = 0;                                          // 动作自带的Swift，默认0
+    int ifCount = 1;                                        // 动作自带的 I/F，普通点击为 1
 };

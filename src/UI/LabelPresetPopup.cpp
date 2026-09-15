@@ -40,16 +40,16 @@ bool LabelPresetPopup::init() {
     loadBtn->setPosition({ centerX + 65.f, 235.f });
     menu->addChild(loadBtn);
 
-    // ----------------- 第二行：Swift 切换按钮、Min 与 Max -----------------
-    auto swiftLbl = CCLabelBMFont::create("Swift:", "bigFont.fnt");
-    swiftLbl->setScale(0.38f);
-    swiftLbl->setPosition({ centerX - 145.f, 195.f });
-    m_mainLayer->addChild(swiftLbl);
+    // ----------------- 第二行：I/F 切换按钮、Min 与 Max -----------------
+    auto ifLbl = CCLabelBMFont::create("I/F:", "bigFont.fnt");
+    ifLbl->setScale(0.38f);
+    ifLbl->setPosition({ centerX - 145.f, 195.f });
+    m_mainLayer->addChild(ifLbl);
 
-    // Swift 切换按钮：勾选即切换为 Swift 维度，取消勾选即切换为 Frame Window 维度
-    m_swiftToggle = CCMenuItemToggler::createWithStandardSprites(this, menu_selector(LabelPresetPopup::onSwiftToggle), 0.65f);
-    m_swiftToggle->setPosition({ centerX - 105.f, 195.f });
-    menu->addChild(m_swiftToggle);
+    // I/F 切换按钮：勾选即切换为 I/F 维度，取消勾选即切换为 Frame Window 维度
+    m_ifToggle = CCMenuItemToggler::createWithStandardSprites(this, menu_selector(LabelPresetPopup::onIFToggle), 0.65f);
+    m_ifToggle->setPosition({ centerX - 105.f, 195.f });
+    menu->addChild(m_ifToggle);
 
     m_minLbl = CCLabelBMFont::create("Min Win:", "bigFont.fnt");
     m_minLbl->setScale(0.38f);
@@ -60,7 +60,7 @@ bool LabelPresetPopup::init() {
     m_minInput->setPosition({ centerX - 5.f, 195.f });
     m_minInput->setFilter("0123456789./");
     m_minInput->setCallback([this](std::string const& text) {
-        if (m_currentUseSwift) m_currentMinSwiftStr = text;
+        if (m_currentUseIF) m_currentMinIFStr = text;
         else m_currentMinWindowStr = text;
         this->autoSave();
         });
@@ -75,7 +75,7 @@ bool LabelPresetPopup::init() {
     m_maxInput->setPosition({ centerX + 115.f, 195.f });
     m_maxInput->setFilter("0123456789./");
     m_maxInput->setCallback([this](std::string const& text) {
-        if (m_currentUseSwift) m_currentMaxSwiftStr = text;
+        if (m_currentUseIF) m_currentMaxIFStr = text;
         else m_currentMaxWindowStr = text;
         this->autoSave();
         });
@@ -154,12 +154,12 @@ bool LabelPresetPopup::init() {
     return true;
 }
 
-void LabelPresetPopup::onSwiftToggle(CCObject* sender) {
+void LabelPresetPopup::onIFToggle(CCObject* sender) {
     if (auto toggle = typeinfo_cast<CCMenuItemToggler*>(sender)) {
         // 1. 保存切换前的当前数值
-        if (m_currentUseSwift) {
-            m_currentMinSwiftStr = m_minInput->getString();
-            m_currentMaxSwiftStr = m_maxInput->getString();
+        if (m_currentUseIF) {
+            m_currentMinIFStr = m_minInput->getString();
+            m_currentMaxIFStr = m_maxInput->getString();
         }
         else {
             m_currentMinWindowStr = m_minInput->getString();
@@ -167,20 +167,20 @@ void LabelPresetPopup::onSwiftToggle(CCObject* sender) {
         }
 
         // 2. 状态取反
-        m_currentUseSwift = !toggle->isToggled();
+        m_currentUseIF = !toggle->isToggled();
 
         // 3. 动态切换输入框文本及 Min/Max 提示文字
-        if (m_currentUseSwift) {
-            if (m_minLbl) m_minLbl->setString("Min Sw:");
-            if (m_maxLbl) m_maxLbl->setString("Max Sw:");
-            m_minInput->setString(m_currentMinSwiftStr);
-            m_maxInput->setString(m_currentMaxSwiftStr);
+        if (m_currentUseIF) {
+            if (m_minLbl) m_minLbl->setString("Min I/F:");
+            if (m_maxLbl) m_maxLbl->setString("Max I/F:");
+            m_minInput->setString(m_currentMinIFStr.empty() ? "1" : m_currentMinIFStr);
+            m_maxInput->setString(m_currentMaxIFStr.empty() ? "999999" : m_currentMaxIFStr);
         }
         else {
             if (m_minLbl) m_minLbl->setString("Min Win:");
             if (m_maxLbl) m_maxLbl->setString("Max Win:");
-            m_minInput->setString(m_currentMinWindowStr);
-            m_maxInput->setString(m_currentMaxWindowStr);
+            m_minInput->setString(m_currentMinWindowStr.empty() ? "0" : m_currentMinWindowStr);
+            m_maxInput->setString(m_currentMaxWindowStr.empty() ? "999999" : m_currentMaxWindowStr);
         }
 
         this->autoSave();
@@ -208,17 +208,17 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
 
     int count = 0;
 
-    if (m_currentUseSwift) {
-        // ----------------- 勾选 Swift 状态 -----------------
-        // 同步 Swift 区间 [minV, maxV] 内的所有预设颜色（不限 window）
+    if (m_currentUseIF) {
+        // ----------------- 勾选 I/F 状态 -----------------
+        // 同步 I/F 区间 [minV, maxV] 内的所有预设颜色（不限 window）
         for (auto& [key, preset] : g_windowPresets) {
-            if (preset.swift >= minV && preset.swift <= maxV) {
+            if (preset.ifCount >= minV && preset.ifCount <= maxV) {
                 preset.color = m_currentColor;
                 count++;
             }
         }
 
-        // 收集已有预设中出现过的所有window值（若为空则默认 1.0），补全区间内缺失的预设
+        // 收集已有预设中出现过的所有 window 值（若为空则默认 1.0），补全区间内缺失的预设
         std::set<double> existingWindows;
         for (auto const& [key, preset] : g_windowPresets) {
             existingWindows.insert(preset.window);
@@ -227,12 +227,13 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
             existingWindows.insert(1.0);
         }
 
-        for (int s = minV; s <= maxV; s++) {
+        for (int k = minV; k <= maxV; k++) {
+            if (k < 1) continue;
             for (double w : existingWindows) {
-                auto key = makeWindowPresetKey(s, w);
+                auto key = makeWindowPresetKey(k, w);
                 if (!g_windowPresets.contains(key)) {
                     FrameWindowPreset p;
-                    p.swift = s;
+                    p.ifCount = k;
                     p.window = w;
                     p.color = m_currentColor;
                     g_windowPresets[key] = p;
@@ -243,12 +244,12 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
 
         saveSettings();
         triggerHUDRefresh();
-        auto alert = FLAlertLayer::create("Success", fmt::format("Applied color to {} presets under Swift range ({} - {})!", count, minV, maxV), "OK");
+        auto alert = FLAlertLayer::create("Success", fmt::format("Applied color to {} presets under I/F range ({} - {})!", count, minV, maxV), "OK");
         alert->show(); stopAlertAnimation(alert);
     }
     else {
-        // ----------------- 未勾选 Swift 状态 -----------------
-        // 同步 window 在 [minV, maxV] 区间内的所有预设颜色
+        // ----------------- 未勾选 I/F 状态 -----------------
+        // 无视 I/F，直接同步 window 在 [minV, maxV] 区间内的所有预设颜色
         for (auto& [key, preset] : g_windowPresets) {
             if (preset.window >= minV && preset.window <= maxV) {
                 preset.color = m_currentColor;
@@ -256,19 +257,19 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
             }
         }
 
-        // 收集已有预设中出现过的所有swift，补全区间内缺失的预设
-        std::set<int> existingSwifts;
+        // 收集已有预设中出现过的所有 I/F（至少包含 1），补全区间内缺失的预设
+        std::set<int> existingIFs;
         for (auto const& [key, preset] : g_windowPresets) {
-            existingSwifts.insert(preset.swift);
+            existingIFs.insert(preset.ifCount);
         }
-        existingSwifts.insert(0);
+        existingIFs.insert(1);
 
-        for (int s : existingSwifts) {
+        for (int k : existingIFs) {
             for (int i = minV; i <= maxV; i++) {
-                auto key = makeWindowPresetKey(s, static_cast<double>(i));
+                auto key = makeWindowPresetKey(k, static_cast<double>(i));
                 if (!g_windowPresets.contains(key)) {
                     FrameWindowPreset p;
-                    p.swift = s;
+                    p.ifCount = k;
                     p.window = static_cast<double>(i);
                     p.color = m_currentColor;
                     g_windowPresets[key] = p;
@@ -279,7 +280,7 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
 
         saveSettings();
         triggerHUDRefresh();
-        auto alert = FLAlertLayer::create("Success", fmt::format("Applied color to {} presets across all Swifts for Windows ({} - {})!", count, minV, maxV), "OK");
+        auto alert = FLAlertLayer::create("Success", fmt::format("Applied color to {} presets across all I/F values for Windows ({} - {})!", count, minV, maxV), "OK");
         alert->show(); stopAlertAnimation(alert);
     }
 }
@@ -370,11 +371,11 @@ void LabelPresetPopup::autoSave() {
     try { p.id = std::stoi(idStr); }
     catch (...) { p.id = 0; }
 
-    p.useSwift = m_currentUseSwift;
+    p.useIF = m_currentUseIF;
     p.minWindowStr = m_currentMinWindowStr;
     p.maxWindowStr = m_currentMaxWindowStr;
-    p.minSwiftStr = m_currentMinSwiftStr;
-    p.maxSwiftStr = m_currentMaxSwiftStr;
+    p.minIFStr = m_currentMinIFStr;
+    p.maxIFStr = m_currentMaxIFStr;
     p.text = m_textInput->getString();
     p.audioPath = m_audioInput->getString();
     p.color = m_currentColor;
@@ -391,19 +392,19 @@ void LabelPresetPopup::onLoad(CCObject*) {
     std::string idStr = m_idInput->getString();
     if (g_labelPresets.contains(idStr)) {
         auto& p = g_labelPresets[idStr];
-        m_currentUseSwift = p.useSwift;
-        m_swiftToggle->toggle(m_currentUseSwift);
+        m_currentUseIF = p.useIF;
+        m_ifToggle->toggle(m_currentUseIF);
 
         m_currentMinWindowStr = p.minWindowStr;
         m_currentMaxWindowStr = p.maxWindowStr;
-        m_currentMinSwiftStr = p.minSwiftStr;
-        m_currentMaxSwiftStr = p.maxSwiftStr;
+        m_currentMinIFStr = p.minIFStr;
+        m_currentMaxIFStr = p.maxIFStr;
 
-        if (m_currentUseSwift) {
-            if (m_minLbl) m_minLbl->setString("Min Sw:");
-            if (m_maxLbl) m_maxLbl->setString("Max Sw:");
-            m_minInput->setString(p.minSwiftStr);
-            m_maxInput->setString(p.maxSwiftStr);
+        if (m_currentUseIF) {
+            if (m_minLbl) m_minLbl->setString("Min I/F:");
+            if (m_maxLbl) m_maxLbl->setString("Max I/F:");
+            m_minInput->setString(p.minIFStr);
+            m_maxInput->setString(p.maxIFStr);
         }
         else {
             if (m_minLbl) m_minLbl->setString("Min Win:");
@@ -443,11 +444,11 @@ void LabelPresetPopup::onResetAll(CCObject*) {
                 for (int i = 0; i <= 99; i++) {
                     LabelPreset p;
                     p.id = i;
-                    p.useSwift = false;
+                    p.useIF = false;
                     p.minWindowStr = "";
                     p.maxWindowStr = "";
-                    p.minSwiftStr = "";
-                    p.maxSwiftStr = "";
+                    p.minIFStr = "";
+                    p.maxIFStr = "";
                     p.text = std::to_string(i);
                     p.audioPath = "";
                     p.color = { 1.f, 1.f, 1.f, 1.f };

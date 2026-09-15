@@ -17,17 +17,17 @@ bool WindowPresetPopup::init() {
     menu->setPosition({ 0, 0 });
     m_mainLayer->addChild(menu);
 
-    // 0.Swift输入框
-    auto swiftLbl = CCLabelBMFont::create("Sw:", "bigFont.fnt");
-    swiftLbl->setScale(0.4f);
-    swiftLbl->setPosition({ centerX - 120.f, 165.f });
-    m_mainLayer->addChild(swiftLbl);
+    // 0. I/F 输入框
+    auto ifLbl = CCLabelBMFont::create("I/F:", "bigFont.fnt");
+    ifLbl->setScale(0.4f);
+    ifLbl->setPosition({ centerX - 120.f, 165.f });
+    m_mainLayer->addChild(ifLbl);
 
-    m_swiftInput = TextInput::create(45.f, "0");
-    m_swiftInput->setPosition({ centerX - 85.f, 165.f });
-    m_swiftInput->setFilter("0123456789");
-    m_swiftInput->setString("0");
-    m_mainLayer->addChild(m_swiftInput);
+    m_ifInput = TextInput::create(45.f, "1");
+    m_ifInput->setPosition({ centerX - 85.f, 165.f });
+    m_ifInput->setFilter("0123456789");
+    m_ifInput->setString("1");
+    m_mainLayer->addChild(m_ifInput);
 
     // 1. Window 输入框与 Load 按钮
     auto winLbl = CCLabelBMFont::create("Win:", "bigFont.fnt");
@@ -53,6 +53,7 @@ bool WindowPresetPopup::init() {
     m_textInput->setFilter("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~");
     m_textInput->setCallback([this](std::string const&) { this->autoSave(); });
     m_mainLayer->addChild(m_textInput);
+
     // 3. 颜色选择按钮
     auto colorLabel = CCLabelBMFont::create("Circle Color:", "bigFont.fnt");
     colorLabel->setScale(0.45f);
@@ -72,6 +73,7 @@ bool WindowPresetPopup::init() {
     auto colorBtn = CCMenuItemSpriteExtra::create(colorWrapper, this, menu_selector(WindowPresetPopup::onColorBtn));
     colorBtn->setPosition({ centerX + 45.f, 80.f });
     menu->addChild(colorBtn);
+
     // 4. 底部返回与全部重置按钮
     auto switchBtnSpr = ButtonSprite::create("<- Back");
     switchBtnSpr->setScale(0.6f);
@@ -90,18 +92,17 @@ bool WindowPresetPopup::init() {
 }
 
 void WindowPresetPopup::onLoad(CCObject*) {
-    std::string swStr = m_swiftInput ? m_swiftInput->getString() : "0";
+    std::string ifStr = m_ifInput ? m_ifInput->getString() : "1";
     std::string winStr = m_winInput ? m_winInput->getString() : "1";
     if (winStr.empty()) return;
 
-    int swiftVal = 0;
-    try { swiftVal = std::stoi(swStr); }
-    catch (...) { swiftVal = 0; }
-    if (swiftVal < 0) swiftVal = 0;
+    int ifVal = 1;
+    try { ifVal = std::stoi(ifStr); }
+    catch (...) { ifVal = 1; }
+    if (ifVal < 1) ifVal = 1;
 
     double winVal = parseWindowExpr(winStr, 1.0);
-
-    std::string normalizedKey = makeWindowPresetKey(swiftVal, winVal);
+    std::string normalizedKey = makeWindowPresetKey(ifVal, winVal);
 
     if (g_windowPresets.contains(normalizedKey)) {
         auto& p = g_windowPresets[normalizedKey];
@@ -160,24 +161,24 @@ void WindowPresetPopup::onColorBtn(CCObject*) {
 }
 
 void WindowPresetPopup::autoSave() {
-    std::string swStr = m_swiftInput ? m_swiftInput->getString() : "0";
+    std::string ifStr = m_ifInput ? m_ifInput->getString() : "1";
     std::string winStr = m_winInput ? m_winInput->getString() : "1";
     if (winStr.empty()) return;
 
-    int swiftVal = 0;
-    try { swiftVal = std::stoi(swStr); }
-    catch (...) { swiftVal = 0; }
-    if (swiftVal < 0) swiftVal = 0;
+    int ifVal = 1;
+    try { ifVal = std::stoi(ifStr); }
+    catch (...) { ifVal = 1; }
+    if (ifVal < 1) ifVal = 1;
 
     double winVal = parseWindowExpr(winStr, 1.0);
 
     FrameWindowPreset p;
-    p.swift = swiftVal;
+    p.ifCount = ifVal;
     p.window = winVal;
     p.color = m_currentColor;
     p.customText = m_textInput ? m_textInput->getString() : "";
 
-    std::string normalizedKey = makeWindowPresetKey(swiftVal, winVal);
+    std::string normalizedKey = makeWindowPresetKey(ifVal, winVal);
     g_windowPresets[normalizedKey] = p;
     saveSettings();
 }

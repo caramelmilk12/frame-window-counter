@@ -472,11 +472,11 @@ void FrameActionPopup::refreshList(bool rebuildKeys) {
                 if (winInput->getString() != winStr) winInput->setString(winStr);
             }
 
-            // 同步 Swift 输入框值
-            if (auto swiftInput = static_cast<TextInput*>(cell->getChildByID("swift-input"_spr))) {
-                swiftInput->setUserObject(cocos2d::CCString::create(actionKey));
-                std::string swStr = std::to_string(action.swift);
-                if (swiftInput->getString() != swStr) swiftInput->setString(swStr);
+            // 同步 I/F 输入框值
+            if (auto ifInput = static_cast<TextInput*>(cell->getChildByID("if-input"_spr))) {
+                ifInput->setUserObject(cocos2d::CCString::create(actionKey));
+                std::string ifStr = std::to_string(action.ifCount);
+                if (ifInput->getString() != ifStr) ifInput->setString(ifStr);
             }
         }
         else {
@@ -553,37 +553,37 @@ CCNode* FrameActionPopup::createCellTemplate(int index) {
         });
     cell->addChild(winInput);
 
-    auto swiftText = CCLabelBMFont::create("Swift:", "chatFont.fnt");
-    swiftText->setAnchorPoint({ 0.f, 0.5f });
-    swiftText->setPosition({ 260.f, 20.f });
-    swiftText->setScale(0.45f);
-    cell->addChild(swiftText);
+    auto ifText = CCLabelBMFont::create("I/F:", "chatFont.fnt");
+    ifText->setAnchorPoint({ 0.f, 0.5f });
+    ifText->setPosition({ 260.f, 20.f });
+    ifText->setScale(0.45f);
+    cell->addChild(ifText);
 
-    auto swiftInput = TextInput::create(38.f, "0");
-    swiftInput->setFilter("0123456789");
-    swiftInput->setPosition({ 305.f, 20.f });
-    swiftInput->setScale(0.85f);
-    swiftInput->setID("swift-input"_spr);
-    swiftInput->setCallback([swiftInput](std::string const& text) {
-        auto strObj = static_cast<cocos2d::CCString*>(swiftInput->getUserObject());
+    auto ifInput = TextInput::create(38.f, "1");
+    ifInput->setFilter("0123456789");
+    ifInput->setPosition({ 305.f, 20.f });
+    ifInput->setScale(0.85f);
+    ifInput->setID("if-input"_spr);
+    ifInput->setCallback([ifInput](std::string const& text) {
+        auto strObj = static_cast<cocos2d::CCString*>(ifInput->getUserObject());
         if (!strObj) return;
         std::string actionKey = strObj->getCString();
 
         if (g_frameActions.contains(actionKey)) {
-            int swVal = 0;
+            int ifVal = 1;
             if (!text.empty()) {
-                try { swVal = std::stoi(text); }
-                catch (...) { swVal = 0; }
+                try { ifVal = std::stoi(text); }
+                catch (...) { ifVal = 1; }
             }
-            if (swVal < 0) swVal = 0;
-            if (g_frameActions[actionKey].swift != swVal) {
-                g_frameActions[actionKey].swift = swVal;
+            if (ifVal < 1) ifVal = 1;
+            if (g_frameActions[actionKey].ifCount != ifVal) {
+                g_frameActions[actionKey].ifCount = ifVal;
                 updateTickCache();
                 triggerHUDRefresh();
             }
         }
         });
-    cell->addChild(swiftInput);
+    cell->addChild(ifInput);
 
     auto delRowSpr = CCSprite::createWithSpriteFrameName("GJ_deleteIcon_001.png");
     delRowSpr->setScale(0.55f);
@@ -624,7 +624,7 @@ void FrameActionPopup::onTogglePlayer(CCObject* sender) {
     auto it = std::lower_bound(g_tickActionsCache.begin(), g_tickActionsCache.end(), action.frame,
         [](const FrameAction& a, int frame) { return a.frame < frame; });
     while (it != g_tickActionsCache.end() && it->frame == action.frame) {
-        if (it->isPlayer2 != isP2 && std::abs(it->frameWindow - action.frameWindow) < 1e-6 && it->swift == action.swift) {
+        if (it->isPlayer2 != isP2 && std::abs(it->frameWindow - action.frameWindow) < 1e-6 && it->ifCount == action.ifCount) {
             it->isPlayer2 = isP2;
             break;
         }

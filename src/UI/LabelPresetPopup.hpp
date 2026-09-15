@@ -11,15 +11,15 @@ protected:
 
     cocos2d::CCLabelBMFont* m_minLbl = nullptr;
     cocos2d::CCLabelBMFont* m_maxLbl = nullptr;
-    CCMenuItemToggler* m_swiftToggle = nullptr;             // Swift 切换按钮
+    CCMenuItemToggler* m_ifToggle = nullptr;             // IF切换按钮
     CCMenuItemToggler* m_hudToggle = nullptr;
     cocos2d::CCSprite* m_colorSprite = nullptr;
 
-    bool m_currentUseSwift = false;                         // 当前是否处于 Swift 模式
+    bool m_currentUseIF = false;                         // 当前是否处于IF模式
     std::string m_currentMinWindowStr = "";
     std::string m_currentMaxWindowStr = "";
-    std::string m_currentMinSwiftStr = "";
-    std::string m_currentMaxSwiftStr = "";
+    std::string m_currentMinIFStr = "";
+    std::string m_currentMaxIFStr = "";
     bool m_currentShowInHud = false;
     cocos2d::ccColor4F m_currentColor = { 1.f, 1.f, 1.f, 1.f };
 
@@ -32,7 +32,7 @@ protected:
     void onApplyColorToWins(cocos2d::CCObject*);
     void onResetAll(cocos2d::CCObject*);
     void onSwitchToFrames(cocos2d::CCObject*);
-    void onSwiftToggle(cocos2d::CCObject* sender);
+    void onIFToggle(cocos2d::CCObject* sender);
 
 public:
     static LabelPresetPopup* create();

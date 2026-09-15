@@ -3,7 +3,7 @@
 
 class WindowPresetPopup : public geode::Popup {
 protected:
-    geode::TextInput* m_swiftInput = nullptr;
+    geode::TextInput* m_ifInput = nullptr;
     geode::TextInput* m_winInput = nullptr;
     geode::TextInput* m_textInput = nullptr;
     cocos2d::CCSprite* m_colorSprite = nullptr;
