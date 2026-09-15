@@ -82,7 +82,17 @@ void loadModData() {
     for (int i = 0; i <= 99; i++) {
         std::string key = std::to_string(i);
         if (!g_labelPresets.contains(key)) {
-            LabelPreset p = { i, 0, "", "", std::to_string(i), "", {1.f, 1.f, 1.f, 1.f}, false };
+            LabelPreset p;
+            p.id = i;
+            p.useSwift = false;
+            p.minWindowStr = "";
+            p.maxWindowStr = "";
+            p.minSwiftStr = "";
+            p.maxSwiftStr = "";
+            p.text = std::to_string(i);
+            p.audioPath = "";
+            p.color = { 1.f, 1.f, 1.f, 1.f };
+            p.showInHud = false;
             p.updateBounds();
             g_labelPresets[key] = p;
         }

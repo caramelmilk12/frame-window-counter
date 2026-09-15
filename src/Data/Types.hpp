@@ -75,9 +75,11 @@ struct matjson::Serialize<FrameWindowPreset> {
 
 struct LabelPreset {
     int id = 1;
-    int swift = 0;                                          // 监听的 Swift 维度
-    std::string minWindowStr = "";
-    std::string maxWindowStr = "";
+    bool useSwift = false;                                  // 是否处于 Swift 模式（独立统计 Swift，而非 Frame Window）
+    std::string minWindowStr = "";                          // Frame Window 最小值表达式
+    std::string maxWindowStr = "";                          // Frame Window 最大值表达式
+    std::string minSwiftStr = "";                           // Swift 最小值表达式
+    std::string maxSwiftStr = "";                           // Swift 最大值表达式
     std::string text = "Label";
     std::string audioPath = "";
     cocos2d::ccColor4F color = { 1.f, 1.f, 1.f, 1.f };
@@ -86,8 +88,14 @@ struct LabelPreset {
     double maxVal = 999999.0;
 
     void updateBounds() {
-        minVal = parseWindowExpr(minWindowStr, 0.0);
-        maxVal = parseWindowExpr(maxWindowStr, 999999.0);
+        if (useSwift) {
+            minVal = parseWindowExpr(minSwiftStr, 0.0);
+            maxVal = parseWindowExpr(maxSwiftStr, 999999.0);
+        }
+        else {
+            minVal = parseWindowExpr(minWindowStr, 0.0);
+            maxVal = parseWindowExpr(maxWindowStr, 999999.0);
+        }
     }
 };
 
@@ -97,9 +105,11 @@ struct matjson::Serialize<LabelPreset> {
         if (!value.isObject()) return geode::Err("Expected object");
         LabelPreset p;
         p.id = value["id"].asInt().unwrapOr(1);
-        p.swift = value["swift"].asInt().unwrapOr(0);
+        p.useSwift = value["useSwift"].asBool().unwrapOr(false);
         p.minWindowStr = value["minW"].asString().unwrapOr("");
         p.maxWindowStr = value["maxW"].asString().unwrapOr("");
+        p.minSwiftStr = value["minSwift"].asString().unwrapOr("");
+        p.maxSwiftStr = value["maxSwift"].asString().unwrapOr("");
         p.text = value["text"].asString().unwrapOr("1");
         p.audioPath = value["audioPath"].asString().unwrapOr("");
         p.color.r = static_cast<float>(value["r"].asDouble().unwrapOr(1.0));
@@ -113,9 +123,11 @@ struct matjson::Serialize<LabelPreset> {
     static matjson::Value toJson(LabelPreset const& p) {
         return matjson::makeObject({
             {"id", p.id},
-            {"swift", p.swift},
+            {"useSwift", p.useSwift},
             {"minW", p.minWindowStr},
             {"maxW", p.maxWindowStr},
+            {"minSwift", p.minSwiftStr},
+            {"maxSwift", p.maxSwiftStr},
             {"text", p.text},
             {"audioPath", p.audioPath},
             {"r", static_cast<double>(p.color.r)},
@@ -132,5 +144,5 @@ struct FrameAction {
     bool shouldDraw = true;
     double frameWindow = 1.0;
     bool isPlayer2 = false;
-    int swift = 0;                                          // 动作自带的 Swift 维度，默认 0
+    int swift = 0;                                          // 动作自带的Swift，默认0
 };
