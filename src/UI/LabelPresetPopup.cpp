@@ -200,8 +200,8 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
         alert->show(); stopAlertAnimation(alert);
         return;
     }
-    if (maxV - minV + 1 > 1000) {
-        auto alert = FLAlertLayer::create("Error", "Range too large!\nTotal count cannot exceed 1000", "OK");
+    if (maxV - minV + 1 > 100) {
+        auto alert = FLAlertLayer::create("Error", "Range too large!\nTotal count cannot exceed 100", "OK");
         alert->show(); stopAlertAnimation(alert);
         return;
     }
