@@ -127,28 +127,40 @@ bool FrameActionPopup::init() {
     bottomMenu->setPosition({ 0, 0 });
 
     float bottomY = 25.f;
+
+    // 1. Labels
     auto backBtnSpr = ButtonSprite::create("Labels");
     backBtnSpr->setScale(0.55f);
     auto backBtn = CCMenuItemSpriteExtra::create(backBtnSpr, this, menu_selector(FrameActionPopup::onSwitchToLabels));
-    backBtn->setPosition({ centerX - 135.f, bottomY });
+    backBtn->setPosition({ centerX - 150.f, bottomY });
     bottomMenu->addChild(backBtn);
 
+    // 2. Windows
     auto winBtnSpr = ButtonSprite::create("Windows");
     winBtnSpr->setScale(0.55f);
     auto winBtn = CCMenuItemSpriteExtra::create(winBtnSpr, this, menu_selector(FrameActionPopup::onSwitchToWindows));
-    winBtn->setPosition({ centerX - 45.f, bottomY });
+    winBtn->setPosition({ centerX - 75.f, bottomY });
     bottomMenu->addChild(winBtn);
 
+    // 3. Merge（合并同帧输入）
+    auto mergeBtnSpr = ButtonSprite::create("Merge");
+    mergeBtnSpr->setScale(0.55f);
+    auto mergeBtn = CCMenuItemSpriteExtra::create(mergeBtnSpr, this, menu_selector(FrameActionPopup::onMergeFrames));
+    mergeBtn->setPosition({ centerX, bottomY });
+    bottomMenu->addChild(mergeBtn);
+
+    // 4. Import
     auto importBtnSpr = ButtonSprite::create("Import");
     importBtnSpr->setScale(0.55f);
     auto importBtn = CCMenuItemSpriteExtra::create(importBtnSpr, this, menu_selector(FrameActionPopup::onImportGDR));
-    importBtn->setPosition({ centerX + 45.f, bottomY });
+    importBtn->setPosition({ centerX + 75.f, bottomY });
     bottomMenu->addChild(importBtn);
 
+    // 5. Export
     auto exportBtnSpr = ButtonSprite::create("Export");
     exportBtnSpr->setScale(0.55f);
     auto exportBtn = CCMenuItemSpriteExtra::create(exportBtnSpr, this, menu_selector(FrameActionPopup::onExportFWC));
-    exportBtn->setPosition({ centerX + 135.f, bottomY });
+    exportBtn->setPosition({ centerX + 150.f, bottomY });
     bottomMenu->addChild(exportBtn);
 
     m_mainLayer->addChild(bottomMenu);
@@ -770,4 +782,103 @@ void FrameActionPopup::scrollToCell(int indexInPage) {
     if (scrollY > maxY) scrollY = maxY;
 
     m_scrollLayer->m_contentLayer->setPositionY(scrollY);
+}
+
+void FrameActionPopup::onMergeFrames(CCObject*) {
+    Ref<FrameActionPopup> safeThis = this;
+
+    auto alert = geode::createQuickPopup(
+        "Merge Duplicate Inputs",
+        "Are you sure you want to merge all duplicate inputs on the same frame?\n"
+        "<cy>Multiple inputs on the same frame will be combined into a single I/F action.</c>",
+        "Cancel", "Merge",
+        [safeThis](auto, bool btn2) {
+            if (btn2 && safeThis && safeThis->getParent()) {
+                safeThis->mergeDuplicateFrames();
+            }
+        }
+    );
+    stopAlertAnimation(alert);
+}
+
+void FrameActionPopup::mergeDuplicateFrames() {
+    if (g_frameActions.empty()) {
+        auto alert = FLAlertLayer::create("Info", "No actions found to merge.", "OK");
+        alert->show(); stopAlertAnimation(alert);
+        return;
+    }
+
+    size_t beforeCount = g_frameActions.size();
+
+    // 1. 收集所有动作并稳定排序（按帧号与玩家归属归类）
+    std::vector<FrameAction> actionsList;
+    actionsList.reserve(g_frameActions.size());
+    for (const auto& [k, v] : g_frameActions) {
+        actionsList.push_back(v);
+    }
+
+    std::stable_sort(actionsList.begin(), actionsList.end(), [](const FrameAction& a, const FrameAction& b) {
+        if (a.frame != b.frame) return a.frame < b.frame;
+        return a.isPlayer2 < b.isPlayer2;
+        });
+
+    // 2. 合并同帧同玩家动作
+    std::vector<FrameAction> mergedList;
+    for (const auto& act : actionsList) {
+        if (!mergedList.empty() &&
+            mergedList.back().frame == act.frame &&
+            mergedList.back().isPlayer2 == act.isPlayer2)
+        {
+            // 同一帧累加 I/F 计数
+            int addIF = act.ifCount > 0 ? act.ifCount : 1;
+            mergedList.back().ifCount += addIF;
+
+            // 任一动作被激活则合并后保持激活
+            if (act.shouldDraw) {
+                mergedList.back().shouldDraw = true;
+            }
+            // 保留该帧第一个动作的 frameWindow 作为宏观入口窗口
+        }
+        else {
+            FrameAction newAct = act;
+            if (newAct.ifCount < 1) newAct.ifCount = 1;
+            mergedList.push_back(newAct);
+        }
+    }
+
+    size_t afterCount = mergedList.size();
+
+    if (beforeCount == afterCount) {
+        auto alert = FLAlertLayer::create("Info", "No duplicate frame inputs found to merge.", "OK");
+        alert->show(); stopAlertAnimation(alert);
+        return;
+    }
+
+    // 3. 重建 g_frameActions 映射表
+    g_frameActions.clear();
+    for (const auto& act : mergedList) {
+        std::string baseStr = std::to_string(act.frame) + (act.isPlayer2 ? "_1" : "_0");
+        int idx = 0;
+        std::string finalKey = baseStr + "_" + std::to_string(idx);
+        while (g_frameActions.contains(finalKey)) {
+            idx++;
+            finalKey = baseStr + "_" + std::to_string(idx);
+        }
+        g_frameActions[finalKey] = act;
+    }
+
+    // 4. 保存并刷新界面
+    saveFrames();
+    triggerHUDRefresh();
+
+    m_currentPage = 0;
+    this->refreshList(true);
+
+    auto alert = FLAlertLayer::create(
+        "Success",
+        fmt::format("Successfully merged {} inputs into {} inputs!", beforeCount, afterCount),
+        "OK"
+    );
+    alert->show();
+    stopAlertAnimation(alert);
 }

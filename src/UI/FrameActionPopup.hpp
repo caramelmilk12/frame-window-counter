@@ -50,6 +50,8 @@ protected:
     void onSwitchToWindows(cocos2d::CCObject*);
     void onExportFWC(cocos2d::CCObject*);
     void onImportGDR(cocos2d::CCObject*);
+    void onMergeFrames(cocos2d::CCObject* sender);
+    void mergeDuplicateFrames();
 
 public:
     static FrameActionPopup* create();
