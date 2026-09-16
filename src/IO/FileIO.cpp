@@ -60,10 +60,10 @@ namespace FileIO {
                         for (const auto& act : exportList) {
                             if (!act.shouldDraw) continue;
 
+                            double base_frame = static_cast<double>(act.frame);
                             int k = act.ifCount > 0 ? act.ifCount : 1;
                             double fw = (act.frameWindow <= 0.0) ? 1.0 : act.frameWindow;
-                            int playerNum = act.isPlayer2 ? 2 : 1;
-
+  
                             if (k <= 1) {
                                 // 普通输入，导出单个窗口
                                 arr.push_back(matjson::makeObject({
@@ -78,19 +78,20 @@ namespace FileIO {
                                 double w_main = std::max(fw - (k - 1.0) / k, 1.0 / k);
                                 double w_sub = 1.0 / k;
 
-                                // 1. 首个主窗口
+                                // 1. 首个主窗口 (起始帧号: base_frame)
                                 arr.push_back(matjson::makeObject({
                                     {"input", inputCounter++},
-                                    {"timePosition", act.frame},
+                                    {"timePosition", base_frame},
                                     {"frameWindow", w_main},
                                     {"isPlayer2", act.isPlayer2}
                                     }));
 
-                                // 2. 后续 k - 1 个次级窗口
-                                for (int s = 0; s < k - 1; ++s) {
+                                // 2. 后续 k - 1 个次级窗口 (依次分配子帧号: base_frame + s/k)
+                                for (int s = 1; s < k; ++s) {
+                                    double sub_frame = base_frame + static_cast<double>(s) / static_cast<double>(k);
                                     arr.push_back(matjson::makeObject({
                                         {"input", inputCounter++},
-                                        {"timePosition", act.frame},
+                                        {"timePosition", sub_frame},
                                         {"frameWindow", w_sub},
                                         {"isPlayer2", act.isPlayer2}
                                         }));
@@ -236,17 +237,24 @@ namespace FileIO {
                             if (root.contains("frameWindows") && root["frameWindows"].isArray()) {
                                 for (auto& item : root["frameWindows"].asArray().unwrap()) {
                                     FrameAction act;
-                                    act.frame = static_cast<int>(item["timePosition"].asInt().unwrapOr(0));
+									// 解析frame字段，丢弃小数部分
+                                    double timePos = item["timePosition"].asDouble().unwrapOr(0.0);
+                                    act.frame = static_cast<int>(std::floor(timePos));
+
+									// 解析shouldDraw字段，默认为true
                                     act.shouldDraw = true;
+
+									// 解析frameWindow字段
                                     act.frameWindow = item["frameWindow"].asDouble().unwrapOr(1.0);
 
-                                    // 解析 1P / 2P 字段
+                                    // 解析bool player字段
                                     bool isP2 = false;
                                     if (item.contains("isPlayer2")) {
                                         isP2 = item["isPlayer2"].asBool().unwrapOr(false);
                                     }
                                     act.isPlayer2 = isP2;
 
+									// 解析I/F字段，默认为1
                                     int ifVal = 1;
                                     if (item.contains("if")) {
                                         ifVal = item["if"].asInt().unwrapOr(1);
