@@ -24,21 +24,20 @@ bool LabelPresetPopup::init() {
     menu->setPosition({ 0, 0 });
     m_mainLayer->addChild(menu);
 
-    // ----------------- 第一行：ID 与 LOAD -----------------
+    // ----------------- 第一行：ID -----------------
     auto idLbl = CCLabelBMFont::create("ID:", "bigFont.fnt");
     idLbl->setScale(0.45f);
-    idLbl->setPosition({ centerX - 90.f, 235.f });
+    idLbl->setPosition({ centerX - 45.f, 235.f });
     m_mainLayer->addChild(idLbl);
 
-    m_idInput = TextInput::create(60.f, "0");
-    m_idInput->setPosition({ centerX - 35.f, 235.f });
+    m_idInput = TextInput::create(70.f, "0");
+    m_idInput->setPosition({ centerX + 15.f, 235.f });
     m_idInput->setFilter("0123456789");
     m_idInput->setString("0");
+    m_idInput->setCallback([this](std::string const&) {
+        this->onLoad(nullptr);
+        });
     m_mainLayer->addChild(m_idInput);
-
-    auto loadBtn = CCMenuItemSpriteExtra::create(ButtonSprite::create("Load"), this, menu_selector(LabelPresetPopup::onLoad));
-    loadBtn->setPosition({ centerX + 65.f, 235.f });
-    menu->addChild(loadBtn);
 
     // ----------------- 第二行：I/F 切换按钮、Min 与 Max -----------------
     auto ifLbl = CCLabelBMFont::create("I/F:", "bigFont.fnt");
@@ -209,8 +208,6 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
     int count = 0;
 
     if (m_currentUseIF) {
-        // ----------------- 勾选 I/F 状态 -----------------
-        // 同步 I/F 区间 [minV, maxV] 内的所有预设颜色（不限 window）
         for (auto& [key, preset] : g_windowPresets) {
             if (preset.ifCount >= minV && preset.ifCount <= maxV) {
                 preset.color = m_currentColor;
@@ -218,7 +215,6 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
             }
         }
 
-        // 收集已有预设中出现过的所有 window 值（若为空则默认 1.0），补全区间内缺失的预设
         std::set<double> existingWindows;
         for (auto const& [key, preset] : g_windowPresets) {
             existingWindows.insert(preset.window);
@@ -248,8 +244,6 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
         alert->show(); stopAlertAnimation(alert);
     }
     else {
-        // ----------------- 未勾选 I/F 状态 -----------------
-        // 无视 I/F，直接同步 window 在 [minV, maxV] 区间内的所有预设颜色
         for (auto& [key, preset] : g_windowPresets) {
             if (preset.window >= minV && preset.window <= maxV) {
                 preset.color = m_currentColor;
@@ -257,7 +251,6 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
             }
         }
 
-        // 收集已有预设中出现过的所有 I/F（至少包含 1），补全区间内缺失的预设
         std::set<int> existingIFs;
         for (auto const& [key, preset] : g_windowPresets) {
             existingIFs.insert(preset.ifCount);
@@ -364,7 +357,7 @@ void LabelPresetPopup::onHudToggle(CCObject* sender) {
 }
 
 void LabelPresetPopup::autoSave() {
-    std::string idStr = m_idInput->getString();
+    std::string idStr = m_idInput ? m_idInput->getString() : "";
     if (idStr.empty()) return;
 
     LabelPreset p;
@@ -376,8 +369,8 @@ void LabelPresetPopup::autoSave() {
     p.maxWindowStr = m_currentMaxWindowStr;
     p.minIFStr = m_currentMinIFStr;
     p.maxIFStr = m_currentMaxIFStr;
-    p.text = m_textInput->getString();
-    p.audioPath = m_audioInput->getString();
+    p.text = m_textInput ? m_textInput->getString() : "";
+    p.audioPath = m_audioInput ? m_audioInput->getString() : "";
     p.color = m_currentColor;
     p.showInHud = m_currentShowInHud;
     p.updateBounds();
@@ -389,11 +382,13 @@ void LabelPresetPopup::autoSave() {
 }
 
 void LabelPresetPopup::onLoad(CCObject*) {
-    std::string idStr = m_idInput->getString();
+    std::string idStr = m_idInput ? m_idInput->getString() : "0";
+    if (idStr.empty()) return;
+
     if (g_labelPresets.contains(idStr)) {
         auto& p = g_labelPresets[idStr];
         m_currentUseIF = p.useIF;
-        m_ifToggle->toggle(m_currentUseIF);
+        if (m_ifToggle) m_ifToggle->toggle(m_currentUseIF);
 
         m_currentMinWindowStr = p.minWindowStr;
         m_currentMaxWindowStr = p.maxWindowStr;
@@ -403,18 +398,18 @@ void LabelPresetPopup::onLoad(CCObject*) {
         if (m_currentUseIF) {
             if (m_minLbl) m_minLbl->setString("Min I/F:");
             if (m_maxLbl) m_maxLbl->setString("Max I/F:");
-            m_minInput->setString(p.minIFStr);
-            m_maxInput->setString(p.maxIFStr);
+            if (m_minInput) m_minInput->setString(p.minIFStr);
+            if (m_maxInput) m_maxInput->setString(p.maxIFStr);
         }
         else {
             if (m_minLbl) m_minLbl->setString("Min Win:");
             if (m_maxLbl) m_maxLbl->setString("Max Win:");
-            m_minInput->setString(p.minWindowStr);
-            m_maxInput->setString(p.maxWindowStr);
+            if (m_minInput) m_minInput->setString(p.minWindowStr);
+            if (m_maxInput) m_maxInput->setString(p.maxWindowStr);
         }
 
-        m_textInput->setString(p.text);
-        m_audioInput->setString(p.audioPath);
+        if (m_textInput) m_textInput->setString(p.text);
+        if (m_audioInput) m_audioInput->setString(p.audioPath);
 
         m_currentColor = p.color;
         if (m_colorSprite) {
@@ -427,7 +422,34 @@ void LabelPresetPopup::onLoad(CCObject*) {
         }
 
         m_currentShowInHud = p.showInHud;
-        m_hudToggle->toggle(m_currentShowInHud);
+        if (m_hudToggle) m_hudToggle->toggle(m_currentShowInHud);
+    }
+    else {
+        // 若 ID 尚未配置，自动复位为默认模板，防止继承上一个 ID 的残留数据
+        m_currentUseIF = false;
+        if (m_ifToggle) m_ifToggle->toggle(false);
+
+        m_currentMinWindowStr = "";
+        m_currentMaxWindowStr = "";
+        m_currentMinIFStr = "";
+        m_currentMaxIFStr = "";
+
+        if (m_minLbl) m_minLbl->setString("Min Win:");
+        if (m_maxLbl) m_maxLbl->setString("Max Win:");
+        if (m_minInput) m_minInput->setString("");
+        if (m_maxInput) m_maxInput->setString("");
+
+        if (m_textInput) m_textInput->setString(idStr);
+        if (m_audioInput) m_audioInput->setString("");
+
+        m_currentColor = { 1.f, 1.f, 1.f, 1.f };
+        if (m_colorSprite) {
+            m_colorSprite->setColor({ 255, 255, 255 });
+            m_colorSprite->setOpacity(255);
+        }
+
+        m_currentShowInHud = false;
+        if (m_hudToggle) m_hudToggle->toggle(false);
     }
 }
 

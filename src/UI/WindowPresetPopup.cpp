@@ -20,32 +20,32 @@ bool WindowPresetPopup::init() {
     // 0. I/F 输入框
     auto ifLbl = CCLabelBMFont::create("I/F:", "bigFont.fnt");
     ifLbl->setScale(0.4f);
-    ifLbl->setPosition({ centerX - 120.f, 165.f });
+    ifLbl->setPosition({ centerX - 90.f, 165.f });
     m_mainLayer->addChild(ifLbl);
 
-    m_ifInput = TextInput::create(45.f, "1");
-    m_ifInput->setPosition({ centerX - 85.f, 165.f });
+    m_ifInput = TextInput::create(50.f, "1");
+    m_ifInput->setPosition({ centerX - 50.f, 165.f });
     m_ifInput->setFilter("0123456789");
     m_ifInput->setString("1");
+    m_ifInput->setCallback([this](std::string const&) {
+        this->onLoad(nullptr);
+        });
     m_mainLayer->addChild(m_ifInput);
 
-    // 1. Window 输入框与 Load 按钮
+    // 1. Window 输入框
     auto winLbl = CCLabelBMFont::create("Win:", "bigFont.fnt");
     winLbl->setScale(0.4f);
-    winLbl->setPosition({ centerX - 35.f, 165.f });
+    winLbl->setPosition({ centerX + 10.f, 165.f });
     m_mainLayer->addChild(winLbl);
 
-    m_winInput = TextInput::create(55.f, "1");
-    m_winInput->setPosition({ centerX + 10.f, 165.f });
+    m_winInput = TextInput::create(60.f, "1");
+    m_winInput->setPosition({ centerX + 60.f, 165.f });
     m_winInput->setFilter("0123456789./");
     m_winInput->setString("1");
+    m_winInput->setCallback([this](std::string const&) {
+        this->onLoad(nullptr);
+        });
     m_mainLayer->addChild(m_winInput);
-
-    auto loadBtnSpr = ButtonSprite::create("Load");
-    loadBtnSpr->setScale(0.65f);
-    auto loadBtn = CCMenuItemSpriteExtra::create(loadBtnSpr, this, menu_selector(WindowPresetPopup::onLoad));
-    loadBtn->setPosition({ centerX + 95.f, 165.f });
-    menu->addChild(loadBtn);
 
     // 2. 自定义文本输入框
     m_textInput = TextInput::create(230.f, "Custom Text (Default: Win)");
