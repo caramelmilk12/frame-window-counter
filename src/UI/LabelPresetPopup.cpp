@@ -190,31 +190,34 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
     std::string minStr = m_minInput->getString();
     std::string maxStr = m_maxInput->getString();
 
-    int minV = static_cast<int>(std::round(parseWindowExpr(minStr, 0.0)));
-    int maxV = static_cast<int>(std::round(parseWindowExpr(maxStr, 999999.0)));
-
-    if (minV < 0) minV = 0;
-    if (minV > maxV) {
-        auto alert = FLAlertLayer::create("Error", "Min value cannot be greater than Max value.", "OK");
-        alert->show(); stopAlertAnimation(alert);
-        return;
-    }
-    if (maxV - minV + 1 > 100) {
-        auto alert = FLAlertLayer::create("Error", "Range too large!\nTotal count cannot exceed 100", "OK");
-        alert->show(); stopAlertAnimation(alert);
-        return;
-    }
-
     int count = 0;
 
     if (m_currentUseIF) {
+        // ----------------- 1. 勾选 I/F 模式 -----------------
+        int minIF = static_cast<int>(std::round(parseWindowExpr(minStr, 1.0)));
+        int maxIF = static_cast<int>(std::round(parseWindowExpr(maxStr, 999999.0)));
+
+        if (minIF < 1) minIF = 1;
+        if (minIF > maxIF) {
+            auto alert = FLAlertLayer::create("Error", "Min value cannot be greater than Max value.", "OK");
+            alert->show(); stopAlertAnimation(alert);
+            return;
+        }
+        if (maxIF - minIF + 1 > 1000) {
+            auto alert = FLAlertLayer::create("Error", "Range too large!\nTotal count cannot exceed 1000", "OK");
+            alert->show(); stopAlertAnimation(alert);
+            return;
+        }
+
+        // 同步 I/F 区间 [minIF, maxIF] 内的所有已有预设颜色
         for (auto& [key, preset] : g_windowPresets) {
-            if (preset.ifCount >= minV && preset.ifCount <= maxV) {
+            if (preset.ifCount >= minIF && preset.ifCount <= maxIF) {
                 preset.color = m_currentColor;
                 count++;
             }
         }
 
+        // 收集已有预设中出现过的所有 window 值（若为空则默认 1.0），补全缺失预设
         std::set<double> existingWindows;
         for (auto const& [key, preset] : g_windowPresets) {
             existingWindows.insert(preset.window);
@@ -223,8 +226,7 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
             existingWindows.insert(1.0);
         }
 
-        for (int k = minV; k <= maxV; k++) {
-            if (k < 1) continue;
+        for (int k = minIF; k <= maxIF; k++) {
             for (double w : existingWindows) {
                 auto key = makeWindowPresetKey(k, w);
                 if (!g_windowPresets.contains(key)) {
@@ -240,30 +242,62 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
 
         saveSettings();
         triggerHUDRefresh();
-        auto alert = FLAlertLayer::create("Success", fmt::format("Applied color to {} presets under I/F range ({} - {})!", count, minV, maxV), "OK");
+        auto alert = FLAlertLayer::create("Success", fmt::format("Applied color to {} presets under I/F range ({} - {})!", count, minIF, maxIF), "OK");
         alert->show(); stopAlertAnimation(alert);
     }
     else {
+        // ----------------- 2. 未勾选 I/F -----------------
+        double minWin = parseWindowExpr(minStr, 0.0);
+        double maxWin = parseWindowExpr(maxStr, 999999.0);
+
+        if (minWin < 0.0) minWin = 0.0;
+        if (minWin > maxWin) {
+            auto alert = FLAlertLayer::create("Error", "Min value cannot be greater than Max value.", "OK");
+            alert->show(); stopAlertAnimation(alert);
+            return;
+        }
+        if (maxWin - minWin > 1000.0) {
+            auto alert = FLAlertLayer::create("Error", "Range too large!\nTotal span cannot exceed 1000", "OK");
+            alert->show(); stopAlertAnimation(alert);
+            return;
+        }
+
+        // 1. 同步落在 [minWin, maxWin] 浮点区间内的所有已有预设（加入 1e-6 浮点误差保护）
         for (auto& [key, preset] : g_windowPresets) {
-            if (preset.window >= minV && preset.window <= maxV) {
+            if (preset.window >= (minWin - 1e-6) && preset.window <= (maxWin + 1e-6)) {
                 preset.color = m_currentColor;
                 count++;
             }
         }
 
+        // 2. 收集需要确保生成的窗口目标集合
+        std::set<double> targetWindows;
+        targetWindows.insert(minWin);
+        targetWindows.insert(maxWin);
+
+        // 若区间内跨越整数（如 1 到 3），将整数点 1.0, 2.0, 3.0 也一并纳入补全目标
+        int startInt = static_cast<int>(std::ceil(minWin - 1e-6));
+        int endInt = static_cast<int>(std::floor(maxWin + 1e-6));
+        for (int i = startInt; i <= endInt; ++i) {
+            targetWindows.insert(static_cast<double>(i));
+        }
+
+        // 收集已有预设中出现过的所有 I/F（保底包含 1）
         std::set<int> existingIFs;
         for (auto const& [key, preset] : g_windowPresets) {
             existingIFs.insert(preset.ifCount);
         }
         existingIFs.insert(1);
 
+        // 为每个 I/F 补全缺失的目标预设
         for (int k : existingIFs) {
-            for (int i = minV; i <= maxV; i++) {
-                auto key = makeWindowPresetKey(k, static_cast<double>(i));
+            for (double w : targetWindows) {
+                if (w < 0.0) continue;
+                auto key = makeWindowPresetKey(k, w);
                 if (!g_windowPresets.contains(key)) {
                     FrameWindowPreset p;
                     p.ifCount = k;
-                    p.window = static_cast<double>(i);
+                    p.window = w;
                     p.color = m_currentColor;
                     g_windowPresets[key] = p;
                     count++;
@@ -273,7 +307,7 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
 
         saveSettings();
         triggerHUDRefresh();
-        auto alert = FLAlertLayer::create("Success", fmt::format("Applied color to {} presets across all I/F values for Windows ({} - {})!", count, minV, maxV), "OK");
+        auto alert = FLAlertLayer::create("Success", fmt::format("Applied color to {} presets across all I/F values for Windows ({:.2f} - {:.2f})!", count, minWin, maxWin), "OK");
         alert->show(); stopAlertAnimation(alert);
     }
 }
