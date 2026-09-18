@@ -15,7 +15,7 @@ using namespace geode::prelude;
 
 bool LabelPresetPopup::init() {
     if (!Popup::init(400.f, 280.f)) return false;
-    this->setTitle("Label Interval Settings (0-99)");
+    this->setTitle("Label Interval Settings");
 
     auto size = m_mainLayer->getContentSize();
     float centerX = size.width / 2;
@@ -492,26 +492,11 @@ void LabelPresetPopup::onResetAll(CCObject*) {
 
     auto alert = geode::createQuickPopup(
         "Reset All Labels",
-        "Are you sure you want to reset <cr>ALL 100 labels</c>?",
+        "Are you sure you want to clear <cr>ALL label presets</c>?",
         "Cancel", "Reset",
         [safeThis](auto, bool btn2) {
             if (btn2) {
                 g_labelPresets.clear();
-                for (int i = 0; i <= 99; i++) {
-                    LabelPreset p;
-                    p.id = i;
-                    p.useIF = false;
-                    p.minWindowStr = "";
-                    p.maxWindowStr = "";
-                    p.minIFStr = "";
-                    p.maxIFStr = "";
-                    p.text = std::to_string(i);
-                    p.audioPath = "";
-                    p.color = { 1.f, 1.f, 1.f, 1.f };
-                    p.showInHud = false;
-                    p.updateBounds();
-                    g_labelPresets[std::to_string(i)] = p;
-                }
                 saveSettings();
                 triggerHUDRefresh();
 
@@ -519,7 +504,7 @@ void LabelPresetPopup::onResetAll(CCObject*) {
                     safeThis->onLoad(nullptr);
                 }
 
-                auto successAlert = FLAlertLayer::create("Success", "All labels have been reset.", "OK");
+                auto successAlert = FLAlertLayer::create("Success", "All label presets have been cleared.", "OK");
                 successAlert->show();
                 stopAlertAnimation(successAlert);
             }
