@@ -463,15 +463,15 @@ void LabelPresetPopup::onLoad(CCObject*) {
         m_currentUseIF = false;
         if (m_ifToggle) m_ifToggle->toggle(false);
 
-        m_currentMinWindowStr = "";
-        m_currentMaxWindowStr = "";
+        m_currentMinWindowStr = idStr;
+        m_currentMaxWindowStr = idStr;
         m_currentMinIFStr = "";
         m_currentMaxIFStr = "";
 
         if (m_minLbl) m_minLbl->setString("Min Win:");
         if (m_maxLbl) m_maxLbl->setString("Max Win:");
-        if (m_minInput) m_minInput->setString("");
-        if (m_maxInput) m_maxInput->setString("");
+        if (m_minInput) m_minInput->setString(idStr);
+        if (m_maxInput) m_maxInput->setString(idStr);
 
         if (m_textInput) m_textInput->setString(idStr);
         if (m_audioInput) m_audioInput->setString("");
