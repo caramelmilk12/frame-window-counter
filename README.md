@@ -31,6 +31,8 @@ A comprehensive frame window tracking, HUD customization, and $L^*$ (NaNDL Preci
 * **Import & Export:**
   * Import replay/macro files (`.gdr`, `.gdr2`, `.slc`, `.json`, `.fwc`).
   * Export custom binary `.fwc` and NaNDL `.json` project files.
+* **Inputs per Frame (I/F) Support:** Native handling and auto-unpacking of high-frequency micro-inputs into sub-frames, seamlessly integrating with fatigue and CPS fatigue models.
+* **Batch Frame Merging:** Built-in "Merge" utility to automatically aggregate duplicate same-frame inputs into a single action with accumulated I/F count.
 * **Automated Safety Backups:** Background autosaves generated periodically to the Geode config directory.
 
 ---
@@ -103,3 +105,8 @@ src/
 * [Geode CLI](https://github.com/geode-sdk/cli) installed and configured.
 * **Clang** compiler with C++20 support (LLVM / Clang-cl).
 * CMake 3.27+.
+
+### Build
+   ```bash
+   geode build
+   ```
