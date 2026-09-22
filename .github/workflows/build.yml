@@ -1,0 +1,54 @@
+name: Build Geode Mod
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          # Windows (配置 Clang-cl 编译器)
+          - os: windows-latest
+            target: win
+            extra-cmake-args: "-DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl"
+
+          # Android (Linux 交叉编译，内置 Clang / NDK)
+          - os: ubuntu-latest
+            target: android32
+            extra-cmake-args: ""
+          - os: ubuntu-latest
+            target: android64
+            extra-cmake-args: ""
+
+          # macOS & iOS (macOS 宿主机，内置 Apple Clang)
+          - os: macos-latest
+            target: mac-arm
+            extra-cmake-args: ""
+          - os: macos-latest
+            target: mac-intel
+            extra-cmake-args: ""
+          - os: macos-latest
+            target: ios
+            extra-cmake-args: ""
+
+    runs-on: ${{ matrix.config.os }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build Mod
+        uses: geode-sdk/build-geode-mod@main
+        with:
+          bindings: geode-sdk/bindings
+          bindings-ref: main
+          # 设为 false，各平台分别生成独立的安装包
+          combine: false
+          target: ${{ matrix.config.target }}
+          extra-cmake-args: ${{ matrix.config.extra-cmake-args }}
