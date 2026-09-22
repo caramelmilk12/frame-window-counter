@@ -79,43 +79,6 @@ class $modify(MyKeyboardDispatcher, CCKeyboardDispatcher) {
 };
 #endif
 
-#if defined(GEODE_IS_ANDROID) || defined(GEODE_IS_IOS)
-class FWCMenuCallback : public cocos2d::CCObject {
-public:
-    void onOpenFWC(CCObject*) {
-        if (auto scene = CCDirector::sharedDirector()->getRunningScene()) {
-            toggleModPopups(scene);
-        }
-    }
-    static FWCMenuCallback* get() {
-        static auto instance = new FWCMenuCallback();
-        return instance;
-    }
-};
-
-class $modify(MyPauseLayer, PauseLayer) {
-    void customSetup() {
-        PauseLayer::customSetup();
-
-        auto menu = this->getChildByID("right-button-menu");
-        if (!menu) menu = this->getChildByID("center-button-menu");
-        if (!menu) menu = this->getChildByID("bottom-button-menu");
-
-        if (menu) {
-            auto spr = ButtonSprite::create("FWC", 20, true, "goldFont.fnt", "GJ_button_01.png", 30.f, 0.6f);
-            auto btn = CCMenuItemSpriteExtra::create(
-                spr,
-                FWCMenuCallback::get(),
-                menu_selector(FWCMenuCallback::onOpenFWC)
-            );
-            btn->setID("open-fwc-btn"_spr);
-            menu->addChild(btn);
-            menu->updateLayout();
-        }
-    }
-};
-#endif
-
 class $modify(MyDirector, CCDirector) {
     void drawScene() {
         CCDirector::drawScene();

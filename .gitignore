@@ -1,4 +1,5 @@
 build/
+build-android64/
 bin/
 out/
 cmake-build-*/

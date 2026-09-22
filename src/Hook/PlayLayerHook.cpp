@@ -3,6 +3,7 @@
 #include "../Data/State.hpp"
 #include "../Common.hpp"
 #include "../Audio/SoundManager.hpp"
+#include "../UI/FrameActionPopup.hpp"
 #include <algorithm>
 #include <vector>
 #include <map>
@@ -49,7 +50,63 @@ class $modify(MyPlayLayer, PlayLayer) {
         this->rebuildHUD();
         this->schedule(schedule_selector(MyPlayLayer::onMyTick));
 
+#if defined(GEODE_IS_MOBILE)
+        this->createMobileShortcutBtn();
+#endif
+
         return true;
+    }
+
+    // 创建移动端快捷入口按钮
+    void createMobileShortcutBtn() {
+        if (!this->m_uiLayer) return;
+
+        auto winSize = CCDirector::sharedDirector()->getWinSize();
+
+        // 依次尝试获取合适的图标
+        auto sprite = CCSprite::createWithSpriteFrameName("GJ_optionsBtn02_001.png");
+        if (!sprite) {
+            sprite = CCSprite::createWithSpriteFrameName("GJ_optionsBtn_001.png");
+        }
+        if (!sprite) {
+            sprite = CCSprite::createWithSpriteFrameName("GJ_menuBtn_001.png");
+        }
+
+        sprite->setScale(0.6f);
+        sprite->setOpacity(180);
+
+        auto btn = CCMenuItemSpriteExtra::create(
+            sprite,
+            this,
+            menu_selector(MyPlayLayer::onOpenModMenu)
+        );
+        btn->setID("mobile-shortcut-btn"_spr);
+
+        auto menu = CCMenu::create();
+        menu->setID("mobile-shortcut-menu"_spr);
+        menu->setZOrder(100);
+        // 适当留出安全边距（32px），防止曲面/圆角屏误触
+        menu->setPosition(winSize.width - 32.f, 32.f);
+        menu->addChild(btn);
+
+        this->m_uiLayer->addChild(menu);
+    }
+
+    // 点击按钮打开/切换 Mod 窗口
+    void onOpenModMenu(CCObject*) {
+        auto scene = CCDirector::sharedDirector()->getRunningScene();
+        if (!scene) return;
+
+        // 如果弹窗已打开，再次按下则关闭；否则打开主弹窗
+        if (auto existing = scene->getChildByID("FrameActionPopup"_spr)) {
+            existing->removeFromParentAndCleanup(true);
+            return;
+        }
+
+        if (auto popup = FrameActionPopup::create()) {
+            popup->setID("FrameActionPopup"_spr);
+            popup->showInstant();
+        }
     }
 
     void onQuit() {
@@ -601,45 +658,3 @@ void triggerHUDRefresh() {
     }
 }
 
-class $modify(FWCPlayLayer, PlayLayer) {
-    bool init(GJGameLevel * level, bool useReplay, bool dontCreateObjects) {
-        if (!PlayLayer::init(level, useReplay, dontCreateObjects)) return false;
-
-#if defined(GEODE_IS_MOBILE)
-        this->createMobileShortcutBtn();
-#endif
-
-        return true;
-    }
-
-    void createMobileShortcutBtn() {
-        if (!m_uiLayer) return;
-
-        auto winSize = CCDirector::sharedDirector()->getWinSize();
-
-        auto sprite = CCSprite::createWithSpriteFrameName("GJ_optionsBtn02_001.png");
-        if (!sprite) {
-            sprite = CCSprite::createWithSpriteFrameName("GJ_menuBtn_001.png");
-        }
-
-        sprite->setScale(0.55f);
-        sprite->setOpacity(150);
-
-        auto btn = CCMenuItemSpriteExtra::create(
-            sprite,
-            this,
-            menu_selector(FWCPlayLayer::onOpenModMenu)
-        );
-
-        auto menu = CCMenu::create();
-        menu->setZOrder(100);
-        menu->setPosition(winSize.width - 24.f, 24.f);
-        menu->addChild(btn);
-
-        m_uiLayer->addChild(menu);
-    }
-
-    void onOpenModMenu(CCObject*) {
-        geode::openSettingsPopup(Mod::get());
-    }
-};
