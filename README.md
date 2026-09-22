@@ -50,9 +50,11 @@ src/
 │   └── Types.hpp
 ├── Hook/                           # Geode game hooks & lifecycle modifications
 │   ├── CCDirectorHook.cpp          # Scene loop, autosave & hotkey handler
+│   ├── EndLevelLayerHook.cpp       # Level completion & end screen handling
 │   ├── PauseLayerHook.cpp          # Pause menu UI integration
 │   └── PlayLayerHook.cpp           # HUD rendering, marker spawning & game ticks
-├── IO/                             # File importing/exporting logic (.fwc, .gdr)
+├── IO/                             # File importing/exporting logic (.fwc, .gdr, .slc, .cml)
+│   ├── CmlParser.cpp / .hpp        # xdBot compressed macro parser (v1-v7)
 │   ├── FileIO.cpp
 │   └── FileIO.hpp
 ├── Math/                           # L* mathematical models & multi-threaded solver
@@ -63,6 +65,9 @@ src/
 │   ├── FrameActionPopup.cpp / .hpp
 │   ├── LabelPresetPopup.cpp / .hpp
 │   ├── LStarCalcSettingsPopup.cpp / .hpp
+│   ├── MobileAudioPickerPopup.cpp / .hpp
+│   ├── MobileExportPopup.cpp / .hpp
+│   ├── MobileImportPopup.cpp / .hpp
 │   ├── PrecisionSettingsPopup.cpp / .hpp
 │   └── WindowPresetPopup.cpp / .hpp
 └── Common.hpp                      # Global constant definitions & math helpers
