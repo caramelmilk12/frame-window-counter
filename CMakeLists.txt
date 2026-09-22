@@ -66,6 +66,13 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${slc_repo_SOURCE_DIR}/includ
 
 # --- 依赖 B: GDR 格式及其转换器 ---
 CPMAddPackage("gh:maxnut/GDReplayFormat#2a0ca3c")
+
+CPMAddPackage(
+    NAME msgpack-for-matjson
+    GITHUB_REPOSITORY prevter/msgpack-for-matjson
+    GIT_TAG main
+)
+
 CPMAddPackage(
     NAME GDRconverter
     GITHUB_REPOSITORY maxnut/GDR-converter
