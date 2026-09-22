@@ -1,5 +1,5 @@
 #include "CmlParser.hpp"
-#include <Geode/cocos/platform/IncludeZlib.h>
+#include <Geode/cocos/support/zip_support/ZipUtils.h>
 #include <fstream>
 #include <cstring>
 #include <algorithm>
@@ -8,46 +8,18 @@
 namespace CmlParser {
 
     static bool decompressGzip(const uint8_t* compressedData, size_t compressedSize, std::vector<uint8_t>& outBuffer, size_t expectedSize = 0) {
-        outBuffer.clear();
-        if (expectedSize > 0) {
-            outBuffer.resize(expectedSize);
-        } else {
-            outBuffer.resize(compressedSize * 4 + 1024);
-        }
-
-        z_stream strm{};
-        strm.zalloc = Z_NULL;
-        strm.zfree = Z_NULL;
-        strm.opaque = Z_NULL;
-        strm.avail_in = static_cast<uInt>(compressedSize);
-        strm.next_in = const_cast<Bytef*>(reinterpret_cast<const Bytef*>(compressedData));
-
-        // 32 + MAX_WBITS enables zlib and gzip decoding with automatic header detection
-        if (inflateInit2(&strm, 32 + MAX_WBITS) != Z_OK) {
+        unsigned char* decompressedBuf = nullptr;
+        auto len = cocos2d::ZipUtils::ccInflateMemory(
+            const_cast<unsigned char*>(compressedData),
+            static_cast<unsigned int>(compressedSize),
+            &decompressedBuf
+        );
+        if (len <= 0 || !decompressedBuf) {
+            if (decompressedBuf) free(decompressedBuf);
             return false;
         }
-
-        size_t totalOut = 0;
-        int ret = Z_OK;
-
-        while (ret == Z_OK) {
-            if (totalOut >= outBuffer.size()) {
-                outBuffer.resize(outBuffer.size() * 2 + 1024);
-            }
-            strm.avail_out = static_cast<uInt>(outBuffer.size() - totalOut);
-            strm.next_out = reinterpret_cast<Bytef*>(outBuffer.data() + totalOut);
-
-            ret = inflate(&strm, Z_NO_FLUSH);
-            totalOut = outBuffer.size() - strm.avail_out;
-        }
-
-        inflateEnd(&strm);
-
-        if (ret != Z_STREAM_END) {
-            return false;
-        }
-
-        outBuffer.resize(totalOut);
+        outBuffer.assign(decompressedBuf, decompressedBuf + len);
+        free(decompressedBuf);
         return true;
     }
 
