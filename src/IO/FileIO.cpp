@@ -1,4 +1,5 @@
 #include "FileIO.hpp"
+#include "CmlParser.hpp"
 #include "../Data/State.hpp"
 #include "../Common.hpp"
 #if defined(GEODE_IS_ANDROID) || defined(GEODE_IS_IOS)
@@ -252,6 +253,14 @@ namespace FileIO {
                     newActions.push_back({ static_cast<int>(input.frame), false, 1.0, input.player2, 1 });
                 }
             }
+            else if (ext == ".cml") {
+                auto res = CmlParser::parse(path);
+                newActions = std::move(res.actions);
+                if (res.hasFps && res.fps > 0.0) {
+                    parsedFps = res.fps;
+                    updateFps = true;
+                }
+            }
 
             geode::queueInMainThread([newActions, parsedFps, updateFps, onSuccessCallback]() {
                 if (newActions.empty()) {
@@ -365,11 +374,12 @@ namespace FileIO {
         file::FilePickOptions options;
         options.filters.push_back({
             "Supported Formats",
-            { "*.fwc", "*.json", "*.gdr", "*.gdr2", "*.slc" }
+            { "*.fwc", "*.json", "*.gdr", "*.gdr2", "*.slc", "*.cml" }
             });
         options.filters.push_back({ "Frame Window Counter (*.fwc)", { "*.fwc" } });
         options.filters.push_back({ "NANDL Calculator JSON (*.json)", { "*.json" } });
         options.filters.push_back({ "GD Replay / Silicate (*.gdr, *.gdr2, *.slc)", { "*.gdr", "*.gdr2", "*.slc" } });
+        options.filters.push_back({ "xdBot Macro (*.cml)", { "*.cml" } });
 
         async::spawn(
             file::pick(file::PickMode::OpenFile, options),
