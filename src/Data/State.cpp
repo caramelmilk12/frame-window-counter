@@ -1,6 +1,7 @@
 #include "State.hpp"
 #include "../Common.hpp"
 #include "../Math/Calculator.hpp"
+#include <Geode/utils/async.hpp>
 #include <filesystem>
 #include <fstream>
 #include <thread>
@@ -142,36 +143,61 @@ void saveFrames() {
 void doAutoSave(GJGameLevel* level) {
     if (g_frameActions.empty()) return;
 
+    // 更新自动保存时间戳
+    g_lastAutoSaveTime = std::chrono::steady_clock::now();
+
     std::vector<FrameAction> exportList;
     exportList.reserve(g_frameActions.size());
-    for (auto& [k, v] : g_frameActions) exportList.push_back(v);
+    for (auto& [k, v] : g_frameActions) {
+        exportList.push_back(v);
+    }
 
-    std::string levelName = (level && !std::string(level->m_levelName).empty()) ? std::string(level->m_levelName) : "UnknownLevel";
+    // 安全获取关卡名称
+    std::string levelName = "UnknownLevel";
+    if (level && level->m_levelName.c_str() && strlen(level->m_levelName.c_str()) > 0) {
+        levelName = level->m_levelName.c_str();
+    }
     double fps = g_macroFps;
-    auto configDir = Mod::get()->getConfigDir();
 
-    std::thread([exportList = std::move(exportList), levelName, fps, configDir]() mutable {
-        std::stable_sort(exportList.begin(), exportList.end(), [](const FrameAction& a, const FrameAction& b) {
-            return a.frame < b.frame;
-            });
+    // 统一使用规范的存档目录 SaveDir
+    auto baseDir = Mod::get()->getSaveDir();
 
-        auto t = std::time(nullptr);
-        auto tm = *std::localtime(&t);
-        std::string timeStr = fmt::format("{:04d}-{:02d}-{:02d}_{:02d}-{:02d}-{:02d}",
-            tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+    geode::async::runtime().spawnBlocking<void>([exportList = std::move(exportList), levelName, fps, baseDir]() mutable {
+        try {
+            std::stable_sort(exportList.begin(), exportList.end(), [](const FrameAction& a, const FrameAction& b) {
+                return a.frame < b.frame;
+                });
 
-        std::string cleanLevelName = "";
-        for (char c : levelName) {
-            if (std::isalnum(c) || c == ' ' || c == '-' || c == '_') cleanLevelName += c;
-        }
-        if (cleanLevelName.empty()) cleanLevelName = "Level";
+            auto t = std::time(nullptr);
+            auto tm = *std::localtime(&t);
+            std::string timeStr = fmt::format("{:04d}-{:02d}-{:02d}_{:02d}-{:02d}-{:02d}",
+                tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
 
-        auto saveDir = configDir / "Autosaves";
-        std::filesystem::create_directories(saveDir);
-        auto filepath = saveDir / fmt::format("{}_{}.fwc", cleanLevelName, timeStr);
+            // 清洗文件名，强制强转为 unsigned char 避免非 ASCII 字符引发未定义行为
+            std::string cleanLevelName = "";
+            for (char c : levelName) {
+                if (std::isalnum(static_cast<unsigned char>(c)) || c == ' ' || c == '-' || c == '_') {
+                    cleanLevelName += c;
+                }
+            }
+            if (cleanLevelName.empty()) cleanLevelName = "Level";
 
-        std::ofstream f(filepath, std::ios::binary);
-        if (f) {
+            auto saveDir = baseDir / "Autosaves";
+            std::error_code ec;
+            std::filesystem::create_directories(saveDir, ec);
+            if (ec) {
+                geode::log::error("Failed to create autosave directory: {}", ec.message());
+                return;
+            }
+
+            auto filepath = saveDir / fmt::format("{}_{}.fwc", cleanLevelName, timeStr);
+
+            std::ofstream f(filepath.string(), std::ios::binary);
+            if (!f.is_open()) {
+                geode::log::error("Failed to open autosave file for writing: {}", filepath.string());
+                return;
+            }
+
             f.write("FWC2", 4);
             f.write(reinterpret_cast<const char*>(&fps), sizeof(double));
             uint32_t count = static_cast<uint32_t>(exportList.size());
@@ -190,10 +216,13 @@ void doAutoSave(GJGameLevel* level) {
             }
             f.close();
             geode::Loader::get()->queueInMainThread([]() {
-                geode::Notification::create("Auto-saved FWC", cocos2d::CCSprite::createWithSpriteFrameName("GJ_completesIcon_001.png"))->show();
+                geode::Notification::create("Auto-saved FWC", geode::NotificationIcon::Success)->show();
                 });
         }
-        }).detach();
+        catch (const std::exception& e) {
+            geode::log::error("Autosave exception: {}", e.what());
+        }
+        });
 }
 
 $on_mod(Loaded) {
