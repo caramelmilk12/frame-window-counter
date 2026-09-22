@@ -345,48 +345,39 @@ class $modify(MyPlayLayer, PlayLayer) {
             };
         }
 
+        // 清理残留的旧 Glow 节点
+        const int TAG_GLOW_NODE = 20000 + presetId;
+        if (m_fields->m_hudNode) {
+            if (auto oldGlow = m_fields->m_hudNode->getChildByTag(TAG_GLOW_NODE)) {
+                oldGlow->removeFromParentAndCleanup(true);
+            }
+        }
+
         constexpr int TAG_SCALE = 1001;
         constexpr int TAG_TINT = 1002;
+
         countLbl->stopActionByTag(TAG_SCALE);
         countLbl->stopActionByTag(TAG_TINT);
-        countLbl->setScale(0.5f);
-        countLbl->setColor(origColor);
 
-        // 1. 点击回弹放大缩小
-        auto scaleUp = CCEaseSineOut::create(CCScaleTo::create(0.06f, 0.65f));
-        auto scaleDown = CCEaseSineIn::create(CCScaleTo::create(0.12f, 0.5f));
+        // 动画时长与幅度配置
+        constexpr float TIME_UP = 0.06f; // 放大并变白的时长
+        constexpr float TIME_DOWN = 0.24f; // 缩回并恢复原色的时长
+        constexpr float BASE_SCALE = 0.50f; // 常态尺寸
+        constexpr float PEAK_SCALE = 0.60f; // 弹起峰值尺寸
+
+        // 缩放动画
+        auto scaleUp = CCEaseSineOut::create(CCScaleTo::create(TIME_UP, PEAK_SCALE));
+        auto scaleDown = CCEaseSineOut::create(CCScaleTo::create(TIME_DOWN, BASE_SCALE));
         auto scaleSeq = CCSequence::create(scaleUp, scaleDown, nullptr);
         scaleSeq->setTag(TAG_SCALE);
         countLbl->runAction(scaleSeq);
 
-        // 2. 纯白高光后过渡回原色
-        countLbl->setColor({ 255, 255, 255 });
-        auto tintAction = CCTintTo::create(0.18f, origColor.r, origColor.g, origColor.b);
-        tintAction->setTag(TAG_TINT);
-        countLbl->runAction(tintAction);
-
-        // 3. 叠加泛光扩散消散
-        if (m_fields->m_hudNode) {
-            auto glowLbl = CCLabelBMFont::create(countLbl->getString(), "bigFont.fnt");
-            glowLbl->setAnchorPoint(countLbl->getAnchorPoint());
-            glowLbl->setPosition(countLbl->getPosition());
-            glowLbl->setScale(0.5f);
-            glowLbl->setColor({ 255, 255, 255 });
-            glowLbl->setOpacity(230);
-            glowLbl->setBlendFunc({ GL_SRC_ALPHA, GL_ONE });
-
-            auto glowScale = CCEaseSineOut::create(CCScaleTo::create(0.20f, 0.75f));
-            auto glowFade = CCSequence::create(
-                CCFadeTo::create(0.04f, 255),
-                CCFadeOut::create(0.16f),
-                nullptr
-            );
-            auto glowSpawn = CCSpawn::create(glowScale, glowFade, nullptr);
-            auto glowSeq = CCSequence::create(glowSpawn, CCRemoveSelf::create(), nullptr);
-            glowLbl->runAction(glowSeq);
-
-            m_fields->m_hudNode->addChild(glowLbl, 10);
-        }
+        // 颜色渐变
+        auto tintToWhite = CCEaseSineOut::create(CCTintTo::create(TIME_UP, 255, 255, 255));
+        auto tintToOrig = CCEaseSineOut::create(CCTintTo::create(TIME_DOWN, origColor.r, origColor.g, origColor.b));
+        auto tintSeq = CCSequence::create(tintToWhite, tintToOrig, nullptr);
+        tintSeq->setTag(TAG_TINT);
+        countLbl->runAction(tintSeq);
     }
 
     void updateAndCleanMarkers() {
