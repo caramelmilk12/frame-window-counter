@@ -3,13 +3,11 @@
 #include "../Data/State.hpp"
 #include "../Common.hpp"
 #include <Geode/ui/ColorPickPopup.hpp>
-#include <thread>
+#include <Geode/utils/file.hpp>
+#include <Geode/utils/async.hpp>
 #include <set>
-
-#ifdef GEODE_IS_WINDOWS
-#include <windows.h>
-#include <commdlg.h>
-#endif
+#include <optional>
+#include <filesystem>
 
 using namespace geode::prelude;
 
@@ -45,7 +43,6 @@ bool LabelPresetPopup::init() {
     ifLbl->setPosition({ centerX - 145.f, 195.f });
     m_mainLayer->addChild(ifLbl);
 
-    // I/F 切换按钮：勾选即切换为 I/F 维度，取消勾选即切换为 Frame Window 维度
     m_ifToggle = CCMenuItemToggler::createWithStandardSprites(this, menu_selector(LabelPresetPopup::onIFToggle), 0.65f);
     m_ifToggle->setPosition({ centerX - 105.f, 195.f });
     menu->addChild(m_ifToggle);
@@ -155,7 +152,6 @@ bool LabelPresetPopup::init() {
 
 void LabelPresetPopup::onIFToggle(CCObject* sender) {
     if (auto toggle = typeinfo_cast<CCMenuItemToggler*>(sender)) {
-        // 1. 保存切换前的当前数值
         if (m_currentUseIF) {
             m_currentMinIFStr = m_minInput->getString();
             m_currentMaxIFStr = m_maxInput->getString();
@@ -165,10 +161,8 @@ void LabelPresetPopup::onIFToggle(CCObject* sender) {
             m_currentMaxWindowStr = m_maxInput->getString();
         }
 
-        // 2. 状态取反
         m_currentUseIF = !toggle->isToggled();
 
-        // 3. 动态切换输入框文本及 Min/Max 提示文字
         if (m_currentUseIF) {
             if (m_minLbl) m_minLbl->setString("Min I/F:");
             if (m_maxLbl) m_maxLbl->setString("Max I/F:");
@@ -193,7 +187,6 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
     int count = 0;
 
     if (m_currentUseIF) {
-        // ----------------- 1. 勾选 I/F 模式 -----------------
         int minIF = static_cast<int>(std::round(parseWindowExpr(minStr, 1.0)));
         int maxIF = static_cast<int>(std::round(parseWindowExpr(maxStr, 999999.0)));
 
@@ -209,7 +202,6 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
             return;
         }
 
-        // 同步 I/F 区间 [minIF, maxIF] 内的所有已有预设颜色
         for (auto& [key, preset] : g_windowPresets) {
             if (preset.ifCount >= minIF && preset.ifCount <= maxIF) {
                 preset.color = m_currentColor;
@@ -217,7 +209,6 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
             }
         }
 
-        // 收集已有预设中出现过的所有 window 值（若为空则默认 1.0），补全缺失预设
         std::set<double> existingWindows;
         for (auto const& [key, preset] : g_windowPresets) {
             existingWindows.insert(preset.window);
@@ -246,7 +237,6 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
         alert->show(); stopAlertAnimation(alert);
     }
     else {
-        // ----------------- 2. 未勾选 I/F -----------------
         double minWin = parseWindowExpr(minStr, 0.0);
         double maxWin = parseWindowExpr(maxStr, 999999.0);
 
@@ -262,7 +252,6 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
             return;
         }
 
-        // 1. 同步落在 [minWin, maxWin] 浮点区间内的所有已有预设（加入 1e-6 浮点误差保护）
         for (auto& [key, preset] : g_windowPresets) {
             if (preset.window >= (minWin - 1e-6) && preset.window <= (maxWin + 1e-6)) {
                 preset.color = m_currentColor;
@@ -270,26 +259,22 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
             }
         }
 
-        // 2. 收集需要确保生成的窗口目标集合
         std::set<double> targetWindows;
         targetWindows.insert(minWin);
         targetWindows.insert(maxWin);
 
-        // 若区间内跨越整数（如 1 到 3），将整数点 1.0, 2.0, 3.0 也一并纳入补全目标
         int startInt = static_cast<int>(std::ceil(minWin - 1e-6));
         int endInt = static_cast<int>(std::floor(maxWin + 1e-6));
         for (int i = startInt; i <= endInt; ++i) {
             targetWindows.insert(static_cast<double>(i));
         }
 
-        // 收集已有预设中出现过的所有 I/F（保底包含 1）
         std::set<int> existingIFs;
         for (auto const& [key, preset] : g_windowPresets) {
             existingIFs.insert(preset.ifCount);
         }
         existingIFs.insert(1);
 
-        // 为每个 I/F 补全缺失的目标预设
         for (int k : existingIFs) {
             for (double w : targetWindows) {
                 if (w < 0.0) continue;
@@ -313,42 +298,36 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
 }
 
 void LabelPresetPopup::onBrowseAudio(CCObject*) {
-#ifdef GEODE_IS_WINDOWS
+#if defined(GEODE_IS_ANDROID) || defined(GEODE_IS_IOS)
+    auto alert = FLAlertLayer::create(
+        "Notice",
+        "File dialog is not available on mobile.\nPlease put your audio in the mod folder\nor type the path manually.",
+        "OK"
+    );
+    alert->show();
+    stopAlertAnimation(alert);
+#else
+    file::FilePickOptions::Filter filter = {
+        "Audio Files",
+        { "*.ogg", "*.mp3", "*.wav" }
+    };
+    file::FilePickOptions options;
+    options.filters.push_back(filter);
+
     Ref<LabelPresetPopup> safeThis = this;
+    async::spawn(
+        file::pick(file::PickMode::OpenFile, options),
+        [safeThis](Result<std::optional<std::filesystem::path>> result) {
+            if (!result.isOk()) return;
+            auto opt = result.unwrap();
+            if (!opt.has_value()) return;
 
-    HWND parentHwnd = GetActiveWindow();
-    if (!parentHwnd) {
-        parentHwnd = WindowFromDC(wglGetCurrentDC());
-    }
-
-    std::thread([safeThis, parentHwnd]() {
-        HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
-
-        char filename[MAX_PATH] = { 0 };
-        OPENFILENAMEA ofn;
-        ZeroMemory(&ofn, sizeof(ofn));
-        ofn.lStructSize = sizeof(ofn);
-        ofn.hwndOwner = parentHwnd;
-        ofn.lpstrFilter = "Audio Files (*.ogg;*.mp3;*.wav)\0*.ogg;*.mp3;*.wav\0All Files (*.*)\0*.*\0";
-        ofn.lpstrFile = filename;
-        ofn.nMaxFile = MAX_PATH;
-        ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY | OFN_NOCHANGEDIR;
-        ofn.lpstrDefExt = "ogg";
-
-        if (GetOpenFileNameA(&ofn)) {
-            std::string pathStr(filename);
-            geode::Loader::get()->queueInMainThread([safeThis, pathStr]() {
-                if (safeThis && safeThis->getParent() && safeThis->m_audioInput) {
-                    safeThis->m_audioInput->setString(pathStr);
-                    safeThis->autoSave();
-                }
-                });
+            if (safeThis && safeThis->getParent() && safeThis->m_audioInput) {
+                safeThis->m_audioInput->setString(opt.value().string());
+                safeThis->autoSave();
+            }
         }
-
-        if (SUCCEEDED(hr)) {
-            CoUninitialize();
-        }
-        }).detach();
+    );
 #endif
 }
 
@@ -459,7 +438,6 @@ void LabelPresetPopup::onLoad(CCObject*) {
         if (m_hudToggle) m_hudToggle->toggle(m_currentShowInHud);
     }
     else {
-        // 若 ID 尚未配置，自动复位为默认模板，防止继承上一个 ID 的残留数据
         m_currentUseIF = false;
         if (m_ifToggle) m_ifToggle->toggle(false);
 

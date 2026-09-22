@@ -14,6 +14,17 @@ struct FrameWindowPreset {
     double window = 1.0;
     cocos2d::ccColor4F color = { 1.f, 1.f, 1.f, 1.f };
     std::string customText = "";
+
+    // 手动实现 operator==，解决 ccColor4F 导致 Clang 隐式删除比较操作符的问题
+    bool operator==(const FrameWindowPreset& other) const {
+        return ifCount == other.ifCount &&
+            window == other.window &&
+            color.r == other.color.r &&
+            color.g == other.color.g &&
+            color.b == other.color.b &&
+            color.a == other.color.a &&
+            customText == other.customText;
+    }
 };
 
 // 分式与小数解析函数
@@ -108,6 +119,25 @@ struct LabelPreset {
             maxVal = parseWindowExpr(maxWindowStr, 999999.0);
         }
     }
+
+    // 手动实现 operator==，解决 ccColor4F 导致 Clang 隐式删除比较操作符的问题
+    bool operator==(const LabelPreset& other) const {
+        return id == other.id &&
+            useIF == other.useIF &&
+            minWindowStr == other.minWindowStr &&
+            maxWindowStr == other.maxWindowStr &&
+            minIFStr == other.minIFStr &&
+            maxIFStr == other.maxIFStr &&
+            text == other.text &&
+            audioPath == other.audioPath &&
+            color.r == other.color.r &&
+            color.g == other.color.g &&
+            color.b == other.color.b &&
+            color.a == other.color.a &&
+            showInHud == other.showInHud &&
+            minVal == other.minVal &&
+            maxVal == other.maxVal;
+    }
 };
 
 template <>
@@ -156,4 +186,6 @@ struct FrameAction {
     double frameWindow = 1.0;
     bool isPlayer2 = false;
     int ifCount = 1;                                        // 动作自带的 I/F，普通点击为 1
+
+    bool operator==(const FrameAction& other) const = default;
 };
