@@ -360,7 +360,7 @@ namespace FileIO {
         if (targetFile.empty()) {
             auto alert = FLAlertLayer::create(
                 "Import Replay",
-                fmt::format("No replay found!\nPlease put .fwc/.json/.slc in:\n{}", importDir.string()).c_str(),
+                fmt::format("No replay found!\nPlease put macro files in:\n{}", importDir.string()).c_str(),
                 "OK"
             );
             alert->show();

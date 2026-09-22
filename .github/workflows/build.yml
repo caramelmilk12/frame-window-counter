@@ -49,18 +49,24 @@ jobs:
           cmake-version: 'latest'
 
       - name: Build Mod
-        id: build
         uses: geode-sdk/build-geode-mod@main
         with:
           bindings: geode-sdk/bindings
           bindings-ref: main
-          combine: false
-          export: false 
+          combine: true 
           platform: ${{ matrix.config.platform }}
           extra-cmake-args: ${{ matrix.config.extra-cmake-args }}
-          
-      - name: Upload Platform Artifact
+
+  package:
+    name: Package Universal Mod
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: geode-sdk/build-geode-mod/combine@main
+        id: package
+        
+      - name: Upload Universal Mod
         uses: actions/upload-artifact@v4
         with:
-          name: frame_window-${{ matrix.config.platform }}
-          path: build/*.geode
+          name: frame_window-universal
+          path: ${{ steps.package.outputs.build-output }}
