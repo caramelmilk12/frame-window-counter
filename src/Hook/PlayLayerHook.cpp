@@ -600,3 +600,49 @@ void triggerHUDRefresh() {
         static_cast<MyPlayLayer*>(pl)->recalculateAndRefreshHUD();
     }
 }
+
+class $modify(FWCPlayLayer, PlayLayer) {
+    bool init(GJGameLevel * level, bool useReplay, bool dontCreateObjects) {
+        if (!PlayLayer::init(level, useReplay, dontCreateObjects)) return false;
+
+#if defined(GEODE_IS_MOBILE)
+        this->createMobileShortcutBtn();
+#endif
+
+        return true;
+    }
+
+    void createMobileShortcutBtn() {
+        if (!m_uiLayer) return;
+
+        auto winSize = CCDirector::sharedDirector()->getWinSize();
+
+        auto sprite = CCSprite::createWithSpriteFrameName("GJ_optionsBtn02_001.png");
+        if (!sprite) {
+            sprite = CCSprite::createWithSpriteFrameName("GJ_menuBtn_001.png");
+        }
+
+        sprite->setScale(0.55f);
+        sprite->setOpacity(150);
+
+        auto btn = CCMenuItemSpriteExtra::create(
+            sprite,
+            this,
+            menu_selector(FWCPlayLayer::onOpenModMenu)
+        );
+
+        auto menu = CCMenu::create();
+        menu->setZOrder(100);
+        menu->setPosition(winSize.width - 24.f, 24.f);
+        menu->addChild(btn);
+
+        m_uiLayer->addChild(menu);
+    }
+
+    void onOpenModMenu(CCObject*) {
+        if (!m_isPaused) {
+            this->pauseGame(true);
+        }
+        geode::openSettingsPopup(Mod::get());
+    }
+};

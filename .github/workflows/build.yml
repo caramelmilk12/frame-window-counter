@@ -16,25 +16,31 @@ jobs:
           # Windows
           - os: windows-latest
             platform: win
+            target: win
             extra-cmake-args: "-DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl"
 
-          # Android
+          # Android 32位
           - os: ubuntu-latest
             platform: android32
-            extra-cmake-args: ""
-          - os: ubuntu-latest
-            platform: android64
+            target: android32
             extra-cmake-args: ""
 
-          # macOS & iOS
-          - os: macos-latest
-            platform: mac-arm
+          # Android 64位
+          - os: ubuntu-latest
+            platform: android64
+            target: android64
             extra-cmake-args: ""
+
+          # macOS
           - os: macos-latest
-            platform: mac-intel
+            platform: mac
+            target: mac
             extra-cmake-args: ""
+
+          # iOS
           - os: macos-latest
             platform: ios
+            target: ios
             extra-cmake-args: ""
 
     runs-on: ${{ matrix.config.os }}
@@ -42,7 +48,7 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        
+
       - name: Setup Latest CMake
         uses: jwlawson/actions-setup-cmake@v2
         with:
@@ -53,8 +59,9 @@ jobs:
         with:
           bindings: geode-sdk/bindings
           bindings-ref: main
-          combine: true 
+          combine: true
           platform: ${{ matrix.config.platform }}
+          target: ${{ matrix.config.target }}
           extra-cmake-args: ${{ matrix.config.extra-cmake-args }}
 
   package:
@@ -64,7 +71,7 @@ jobs:
     steps:
       - uses: geode-sdk/build-geode-mod/combine@main
         id: package
-        
+
       - name: Upload Universal Mod
         uses: actions/upload-artifact@v4
         with:
