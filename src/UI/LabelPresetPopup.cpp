@@ -2,6 +2,9 @@
 #include "FrameActionPopup.hpp"
 #include "../Data/State.hpp"
 #include "../Common.hpp"
+#if defined(GEODE_IS_ANDROID) || defined(GEODE_IS_IOS)
+#include "MobileAudioPickerPopup.hpp"
+#endif
 #include <Geode/ui/ColorPickPopup.hpp>
 #include <Geode/utils/file.hpp>
 #include <Geode/utils/async.hpp>
@@ -299,13 +302,16 @@ void LabelPresetPopup::onApplyColorToWins(CCObject*) {
 
 void LabelPresetPopup::onBrowseAudio(CCObject*) {
 #if defined(GEODE_IS_ANDROID) || defined(GEODE_IS_IOS)
-    auto alert = FLAlertLayer::create(
-        "Notice",
-        "File dialog is not available on mobile.\nPlease put your audio in the mod folder\nor type the path manually.",
-        "OK"
-    );
-    alert->show();
-    stopAlertAnimation(alert);
+    Ref<LabelPresetPopup> safeThis = this;
+    auto popup = MobileAudioPickerPopup::create([safeThis](std::string const& selectedPath) {
+        if (safeThis && safeThis->getParent() && safeThis->m_audioInput) {
+            safeThis->m_audioInput->setString(selectedPath);
+            safeThis->autoSave();
+        }
+        });
+    if (popup) {
+        popup->showInstant();
+    }
 #else
     file::FilePickOptions::Filter filter = {
         "Audio Files",

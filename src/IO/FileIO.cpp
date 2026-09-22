@@ -1,6 +1,10 @@
 #include "FileIO.hpp"
 #include "../Data/State.hpp"
 #include "../Common.hpp"
+#if defined(GEODE_IS_ANDROID) || defined(GEODE_IS_IOS)
+#include "../UI/MobileExportPopup.hpp"
+#include "../UI/MobileImportPopup.hpp"
+#endif
 #include <slc/slc.hpp>
 #include <gdr/gdr.hpp>
 #include <gdr_convert.hpp>
@@ -289,7 +293,7 @@ namespace FileIO {
         }
     }
 
-    void exportFWC() {
+    void exportToFile(const std::filesystem::path& path, bool isJson) {
         std::vector<FrameAction> exportList;
         for (auto& [k, v] : g_frameActions) exportList.push_back(v);
 
@@ -297,21 +301,32 @@ namespace FileIO {
             return a.frame < b.frame;
             });
 
-#if defined(GEODE_IS_ANDROID) || defined(GEODE_IS_IOS)
-        auto exportDir = Mod::get()->getSaveDir() / "exports";
-        std::error_code ec;
-        std::filesystem::create_directories(exportDir, ec);
-
-        auto now = std::chrono::system_clock::now();
-        auto timeT = std::chrono::system_clock::to_time_t(now);
-        char timeBuf[32];
-        std::strftime(timeBuf, sizeof(timeBuf), "%Y%m%d_%H%M%S", std::localtime(&timeT));
-        auto path = exportDir / fmt::format("export_{}.fwc", timeBuf);
-
-        async::runtime().spawnBlocking<void>([path, exportList]() {
-            doExportToFile(path, exportList, false);
+        async::runtime().spawnBlocking<void>([path, exportList, isJson]() {
+            doExportToFile(path, exportList, isJson);
             });
+    }
+
+    void importFromFile(const std::filesystem::path& path, std::function<void()> onSuccessCallback) {
+        async::runtime().spawnBlocking<void>([path, onSuccessCallback]() {
+            doImportFromFile(path, onSuccessCallback);
+            });
+    }
+
+    void exportFWC() {
+#if defined(GEODE_IS_ANDROID) || defined(GEODE_IS_IOS)
+        // 移动端
+        if (auto popup = MobileExportPopup::create()) {
+            popup->showInstant();
+        }
 #else
+        // PC
+        std::vector<FrameAction> exportList;
+        for (auto& [k, v] : g_frameActions) exportList.push_back(v);
+
+        std::stable_sort(exportList.begin(), exportList.end(), [](const FrameAction& a, const FrameAction& b) {
+            return a.frame < b.frame;
+            });
+
         file::FilePickOptions options;
         options.defaultPath = "frames.fwc";
         options.filters.push_back({ "Frame Window Counter (*.fwc)", { "*.fwc" } });
@@ -341,37 +356,12 @@ namespace FileIO {
         loadModData();
 
 #if defined(GEODE_IS_ANDROID) || defined(GEODE_IS_IOS)
-        auto importDir = Mod::get()->getSaveDir() / "imports";
-        std::error_code ec;
-        std::filesystem::create_directories(importDir, ec);
-
-        std::filesystem::path targetFile;
-        for (const auto& entry : std::filesystem::directory_iterator(importDir, ec)) {
-            if (entry.is_regular_file()) {
-                auto ext = entry.path().extension().string();
-                std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-                if (ext == ".fwc" || ext == ".json" || ext == ".slc" || ext == ".gdr" || ext == ".gdr2") {
-                    targetFile = entry.path();
-                    break;
-                }
-            }
+        // 移动端
+        if (auto popup = MobileImportPopup::create(onSuccessCallback)) {
+            popup->showInstant();
         }
-
-        if (targetFile.empty()) {
-            auto alert = FLAlertLayer::create(
-                "Import Replay",
-                fmt::format("No replay found!\nPlease put macro files in:\n{}", importDir.string()).c_str(),
-                "OK"
-            );
-            alert->show();
-            stopAlertAnimation(alert);
-            return;
-        }
-
-        async::runtime().spawnBlocking<void>([targetFile, onSuccessCallback]() {
-            doImportFromFile(targetFile, onSuccessCallback);
-            });
 #else
+        // PC端
         file::FilePickOptions options;
         options.filters.push_back({
             "Supported Formats",
