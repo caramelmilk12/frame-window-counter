@@ -1,6 +1,10 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/CCDirector.hpp>
+
+#ifndef GEODE_IS_MOBILE
 #include <Geode/modify/CCKeyboardDispatcher.hpp>
+#endif
+
 #include <Geode/modify/PauseLayer.hpp>
 #include "../Data/State.hpp"
 #include "../Common.hpp"
@@ -62,7 +66,7 @@ static void toggleModPopups(CCScene* scene) {
     }
 }
 
-// 补充第 4 个参数 double time
+#ifndef GEODE_IS_MOBILE
 class $modify(MyKeyboardDispatcher, CCKeyboardDispatcher) {
     bool dispatchKeyboardMSG(enumKeyCodes key, bool isKeyDown, bool isKeyRepeat, double time) {
         if (isKeyDown && !isKeyRepeat && key == KEY_O) {
@@ -73,6 +77,7 @@ class $modify(MyKeyboardDispatcher, CCKeyboardDispatcher) {
         return CCKeyboardDispatcher::dispatchKeyboardMSG(key, isKeyDown, isKeyRepeat, time);
     }
 };
+#endif
 
 #if defined(GEODE_IS_ANDROID) || defined(GEODE_IS_IOS)
 class FWCMenuCallback : public cocos2d::CCObject {
