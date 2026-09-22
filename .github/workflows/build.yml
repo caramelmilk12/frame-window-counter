@@ -13,28 +13,28 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          # Windows (配置 Clang-cl 编译器)
+          # Windows
           - os: windows-latest
-            target: win
+            platform: win
             extra-cmake-args: "-DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl"
 
-          # Android (Linux 交叉编译，内置 Clang / NDK)
+          # Android
           - os: ubuntu-latest
-            target: android32
+            platform: android32
             extra-cmake-args: ""
           - os: ubuntu-latest
-            target: android64
+            platform: android64
             extra-cmake-args: ""
 
-          # macOS & iOS (macOS 宿主机，内置 Apple Clang)
+          # macOS & iOS
           - os: macos-latest
-            target: mac-arm
+            platform: mac-arm
             extra-cmake-args: ""
           - os: macos-latest
-            target: mac-intel
+            platform: mac-intel
             extra-cmake-args: ""
           - os: macos-latest
-            target: ios
+            platform: ios
             extra-cmake-args: ""
 
     runs-on: ${{ matrix.config.os }}
@@ -48,7 +48,6 @@ jobs:
         with:
           bindings: geode-sdk/bindings
           bindings-ref: main
-          # 设为 false，各平台分别生成独立的安装包
-          combine: false
-          target: ${{ matrix.config.target }}
+          combine: true
+          platform: ${{ matrix.config.platform }}
           extra-cmake-args: ${{ matrix.config.extra-cmake-args }}
