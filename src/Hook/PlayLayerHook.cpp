@@ -30,6 +30,10 @@ class $modify(MyPlayLayer, PlayLayer) {
         // 1P 与 2P 分立的最近画圈帧号记录
         int m_lastSpawnFrame1P = -1;
         int m_lastSpawnFrame2P = -1;
+
+#if defined(GEODE_IS_MOBILE)
+        bool m_isLevelEnd = false;                              // 标记关卡是否已触碰终点
+#endif
     };
 
     bool init(GJGameLevel * level, bool useReplay, bool dontCreateObjects) {
@@ -47,16 +51,18 @@ class $modify(MyPlayLayer, PlayLayer) {
         m_fields->m_lastSpawnFrame1P = -1;
         m_fields->m_lastSpawnFrame2P = -1;
 
-        this->rebuildHUD();
-        this->schedule(schedule_selector(MyPlayLayer::onMyTick));
-
 #if defined(GEODE_IS_MOBILE)
+        m_fields->m_isLevelEnd = false;
         this->createMobileShortcutBtn();
 #endif
+
+        this->rebuildHUD();
+        this->schedule(schedule_selector(MyPlayLayer::onMyTick));
 
         return true;
     }
 
+#if defined(GEODE_IS_MOBILE)
     // 创建移动端快捷入口按钮
     void createMobileShortcutBtn() {
         if (!this->m_uiLayer) return;
@@ -85,7 +91,6 @@ class $modify(MyPlayLayer, PlayLayer) {
         auto menu = CCMenu::create();
         menu->setID("mobile-shortcut-menu"_spr);
         menu->setZOrder(100);
-        // 适当留出安全边距（32px），防止曲面/圆角屏误触
         menu->setPosition(winSize.width - 32.f, 32.f);
         menu->addChild(btn);
 
@@ -94,6 +99,11 @@ class $modify(MyPlayLayer, PlayLayer) {
 
     // 点击按钮打开/切换 Mod 窗口
     void onOpenModMenu(CCObject*) {
+        // 如果关卡已经完成/正在播放通关动画，禁止再弹出 Mod
+        if (m_fields->m_isLevelEnd) {
+            return;
+        }
+
         auto scene = CCDirector::sharedDirector()->getRunningScene();
         if (!scene) return;
 
@@ -108,6 +118,20 @@ class $modify(MyPlayLayer, PlayLayer) {
             popup->showInstant();
         }
     }
+
+    // 切后台或手动暂停时关闭所有弹窗
+    void pauseGame(bool p0) {
+        closeAllModPopups();
+        PlayLayer::pauseGame(p0);
+    }
+
+    // 触碰终点通关时关闭所有弹窗并加锁
+    void levelComplete() {
+        m_fields->m_isLevelEnd = true;
+        closeAllModPopups();
+        PlayLayer::levelComplete();
+    }
+#endif
 
     void onQuit() {
         this->unschedule(schedule_selector(MyPlayLayer::onMyTick));
@@ -144,6 +168,10 @@ class $modify(MyPlayLayer, PlayLayer) {
     void resetLevel() {
         PlayLayer::resetLevel();
         SoundManager::stopAll();
+
+#if defined(GEODE_IS_MOBILE)
+        m_fields->m_isLevelEnd = false; // 复活时重置通关锁
+#endif
 
         int currentFrame = static_cast<int>(this->m_gameState.m_levelTime * g_macroFps);
         m_fields->m_lastFrame = currentFrame - 1; // 设为前一帧，保证当前起点帧的动作能在 onMyTick 中触发
@@ -524,13 +552,11 @@ class $modify(MyPlayLayer, PlayLayer) {
                             int ifVal = action.ifCount;
                             ccColor4F markerColor = { 1.f, 1.f, 1.f, 1.f };
 
-                            // 默认显示：当 I/F > 1 时附带 (nI/F) 标识
                             std::string markerText = formatWindowVal(fw);
                             if (ifVal > 1) {
                                 markerText += fmt::format(" ({}I/F)", ifVal);
                             }
 
-                            // 基于 (ifCount, window) 二维联合查询预设
                             std::string presetKey = makeWindowPresetKey(ifVal, fw);
                             if (g_windowPresets.contains(presetKey)) {
                                 auto& preset = g_windowPresets[presetKey];
@@ -540,7 +566,6 @@ class $modify(MyPlayLayer, PlayLayer) {
                                 }
                             }
 
-                            // 1P 与 2P 独立去重，同帧只绘制第一个圆圈
                             bool shouldSpawnMarker = false;
                             if (!action.isPlayer2) {
                                 if (action.frame != m_fields->m_lastSpawnFrame1P) {
@@ -563,7 +588,6 @@ class $modify(MyPlayLayer, PlayLayer) {
                                 this->spawnFrameWindowMarker(spawnPos, markerText, markerColor);
                             }
 
-                            // HUD 与音效：根据 useIF 独立统计 I/F 或 Frame Window
                             for (auto& [idStr, preset] : g_labelPresets) {
                                 double targetVal = preset.useIF ? static_cast<double>(ifVal) : fw;
                                 if (targetVal >= preset.minVal && targetVal <= preset.maxVal) {
@@ -631,7 +655,6 @@ class $modify(MyPlayLayer, PlayLayer) {
         label->setOpacity(static_cast<GLubyte>(color.a * 255));
         markerNode->addChild(label, 1);
 
-        // 挂载到 m_uiLayer
         if (this->m_uiLayer) {
             this->m_uiLayer->addChild(markerNode);
         }
@@ -639,7 +662,6 @@ class $modify(MyPlayLayer, PlayLayer) {
             this->addChild(markerNode, 9999);
         }
 
-        // 初始化屏幕位置
         if (this->m_objectLayer) {
             markerNode->setPosition(this->m_objectLayer->convertToWorldSpace(pos));
             markerNode->setScale(this->m_objectLayer->getScale());
@@ -657,4 +679,3 @@ void triggerHUDRefresh() {
         static_cast<MyPlayLayer*>(pl)->recalculateAndRefreshHUD();
     }
 }
-
