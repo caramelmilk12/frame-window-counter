@@ -640,9 +640,6 @@ class $modify(FWCPlayLayer, PlayLayer) {
     }
 
     void onOpenModMenu(CCObject*) {
-        if (!m_isPaused) {
-            this->pauseGame(true);
-        }
         geode::openSettingsPopup(Mod::get());
     }
 };
