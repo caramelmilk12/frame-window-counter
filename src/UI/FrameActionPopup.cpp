@@ -11,6 +11,36 @@
 
 using namespace geode::prelude;
 
+// 自定义菜单：只允许在绑定的容器（ScrollLayer）边界内响应点击
+class ClippedMenu : public CCMenu {
+public:
+    CCNode* m_clipTarget = nullptr;
+
+    static ClippedMenu* create(CCNode* clipTarget) {
+        auto ret = new ClippedMenu();
+        if (ret && ret->init()) {
+            ret->m_clipTarget = clipTarget;
+            ret->autorelease();
+            return ret;
+        }
+        CC_SAFE_DELETE(ret);
+        return nullptr;
+    }
+
+    bool ccTouchBegan(CCTouch* touch, CCEvent* event) override {
+        if (m_clipTarget) {
+            // 将触摸点转换为 clipTarget (ScrollLayer) 的本地坐标
+            CCPoint localPt = m_clipTarget->convertTouchToNodeSpace(touch);
+            CCRect bounds = { 0, 0, m_clipTarget->getContentSize().width, m_clipTarget->getContentSize().height };
+            // 如果触摸点在滚动层视口外（例如滑到了顶部的 Activate/Inactivate 区域），拒绝触发
+            if (!bounds.containsPoint(localPt)) {
+                return false;
+            }
+        }
+        return CCMenu::ccTouchBegan(touch, event);
+    }
+};
+
 bool FrameActionPopup::init() {
     if (!Popup::init(430.f, 280.f)) return false;
     this->setTitle("Frame Window Editor");
@@ -111,7 +141,7 @@ bool FrameActionPopup::init() {
     m_scrollLayer->setPosition({ 15.f, 45.f });
     m_mainLayer->addChild(m_scrollLayer);
 
-    auto contentNode = CCMenu::create();
+    auto contentNode = CCNode::create();
     contentNode->setPosition({ 0, 0 });
     contentNode->setID("content-node"_spr);
     m_scrollLayer->m_contentLayer->addChild(contentNode);
@@ -427,7 +457,7 @@ void FrameActionPopup::refreshList(bool rebuildKeys) {
     int displayCount = endIdx - startIdx;
 
     float rowHeight = 42.f;
-    float contentHeight = std::max(180.f, displayCount * rowHeight);
+    float contentHeight = std::max(165.f, displayCount * rowHeight);
     contentNode->setContentSize({ 400.f, contentHeight });
     m_scrollLayer->m_contentLayer->setContentSize({ 400.f, contentHeight });
 
@@ -511,7 +541,7 @@ CCNode* FrameActionPopup::createCellTemplate(int index) {
     bg->setID("cell-bg"_spr);
     cell->addChild(bg);
 
-    auto menu = CCMenu::create();
+    auto menu = ClippedMenu::create(m_scrollLayer);
     menu->setPosition({ 0.f, 0.f });
     cell->addChild(menu);
 
