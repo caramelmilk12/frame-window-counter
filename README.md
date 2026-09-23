@@ -29,7 +29,7 @@ A comprehensive frame window tracking, HUD customization, and $L^*$ (NaNDL Preci
 * **Timeline Tracking:** Automatically highlights and scrolls to the active frame in real-time as the level plays.
 * **Dual Player (1P/2P) Control:** Toggle individual action player assignments on the fly.
 * **Import & Export:**
-  * Import replay/macro files (`.gdr`, `.gdr2`, `.slc`, `.json`, `.fwc`).
+  * Import replay/macro files (`.gdr`, `.gdr2`, `.slc`, `.json`, `.fwc`, `.cml`).
   * Export custom binary `.fwc` and NaNDL `.json` project files.
 * **Inputs per Frame (I/F) Support:** Native handling and auto-unpacking of high-frequency micro-inputs into sub-frames, seamlessly integrating with fatigue and CPS fatigue models.
 * **Batch Frame Merging:** Built-in "Merge" utility to automatically aggregate duplicate same-frame inputs into a single action with accumulated I/F count.
@@ -50,9 +50,11 @@ src/
 │   └── Types.hpp
 ├── Hook/                           # Geode game hooks & lifecycle modifications
 │   ├── CCDirectorHook.cpp          # Scene loop, autosave & hotkey handler
+│   ├── EndLevelLayerHook.cpp       # Level completion & end screen handling
 │   ├── PauseLayerHook.cpp          # Pause menu UI integration
 │   └── PlayLayerHook.cpp           # HUD rendering, marker spawning & game ticks
-├── IO/                             # File importing/exporting logic (.fwc, .gdr)
+├── IO/                             # File importing/exporting logic (.fwc, .gdr, .slc, .cml)
+│   ├── CmlParser.cpp / .hpp        # xdBot compressed macro parser (v1-v7)
 │   ├── FileIO.cpp
 │   └── FileIO.hpp
 ├── Math/                           # L* mathematical models & multi-threaded solver
@@ -63,6 +65,9 @@ src/
 │   ├── FrameActionPopup.cpp / .hpp
 │   ├── LabelPresetPopup.cpp / .hpp
 │   ├── LStarCalcSettingsPopup.cpp / .hpp
+│   ├── MobileAudioPickerPopup.cpp / .hpp
+│   ├── MobileExportPopup.cpp / .hpp
+│   ├── MobileImportPopup.cpp / .hpp
 │   ├── PrecisionSettingsPopup.cpp / .hpp
 │   └── WindowPresetPopup.cpp / .hpp
 └── Common.hpp                      # Global constant definitions & math helpers
@@ -87,7 +92,7 @@ src/
 3. Enable **Show in HUD** to display a live tally during gameplay.
 
 ### 2. Importing & Editing Frames
-1. Click **Import** in the main editor to load a macro or replay file (`.gdr`, `.gdr2`, `.slc`, `.json`, `.fwc`).
+1. Click **Import** in the main editor to load a macro or replay file (`.gdr`, `.gdr2`, `.slc`, `.json`, `.fwc`, `.cml`).
 2. Edit frame numbers, frame window tolerances, or switch between **1P** and **2P** modes.
 3. Use **Activate All** / **Inactivate All** to bulk toggle drawing and HUD inclusion.
 
