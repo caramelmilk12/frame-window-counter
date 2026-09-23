@@ -1,5 +1,6 @@
 #include "FileIO.hpp"
 #include "CmlParser.hpp"
+#include "TcmParser.hpp"
 #include "../Data/State.hpp"
 #include "../Common.hpp"
 #if defined(GEODE_IS_ANDROID) || defined(GEODE_IS_IOS)
@@ -16,6 +17,8 @@
 #include <algorithm>
 #include <optional>
 #include <span>
+#include <unordered_map>
+#include <utility>
 
 using namespace geode::prelude;
 
@@ -261,9 +264,28 @@ namespace FileIO {
                     updateFps = true;
                 }
             }
+            else if (ext == ".tcm") {
+                auto res = TcmParser::parse(path);
+                parsedFps = res.fps;
+                updateFps = true;
+                newActions.reserve(res.inputs.size());
+                for (const auto& input : res.inputs) {
+                    newActions.push_back({ input.frame, false, 1.0, input.player2, 1 });
+                }
+            }
 
-            geode::queueInMainThread([newActions, parsedFps, updateFps, onSuccessCallback]() {
-                if (newActions.empty()) {
+            // 每个 frame/player 组合维护下一个序号，避免大量同帧 input 时
+            // 反复从 0 查找键名。映射表在工作线程构建，主线程只负责替换与刷新。
+            std::map<std::string, FrameAction> importedActions;
+            std::unordered_map<std::string, size_t> nextIndex;
+            for (auto& act : newActions) {
+                std::string base = std::to_string(act.frame) + (act.isPlayer2 ? "_1" : "_0");
+                size_t index = nextIndex[base]++;
+                importedActions.emplace(base + "_" + std::to_string(index), std::move(act));
+            }
+
+            geode::queueInMainThread([importedActions = std::move(importedActions), parsedFps, updateFps, onSuccessCallback]() mutable {
+                if (importedActions.empty()) {
                     auto alert = FLAlertLayer::create("Error", "No valid frames found or empty file.", "OK");
                     alert->show(); stopAlertAnimation(alert);
                     return;
@@ -273,19 +295,8 @@ namespace FileIO {
                     saveSettings();
                 }
 
-                g_frameActions.clear();
-                int addedCount = 0;
-                for (auto& act : newActions) {
-                    std::string baseStr = std::to_string(act.frame) + (act.isPlayer2 ? "_1" : "_0");
-                    int idx = 0;
-                    std::string finalKey = baseStr + "_" + std::to_string(idx);
-                    while (g_frameActions.contains(finalKey)) {
-                        idx++;
-                        finalKey = baseStr + "_" + std::to_string(idx);
-                    }
-                    g_frameActions[finalKey] = act;
-                    addedCount++;
-                }
+                size_t addedCount = importedActions.size();
+                g_frameActions = std::move(importedActions);
 
                 saveFrames();
                 auto alert = FLAlertLayer::create("Success", fmt::format("Loaded {} operations.", addedCount).c_str(), "OK");
@@ -374,12 +385,13 @@ namespace FileIO {
         file::FilePickOptions options;
         options.filters.push_back({
             "Supported Formats",
-            { "*.fwc", "*.json", "*.gdr", "*.gdr2", "*.slc", "*.cml" }
+            { "*.fwc", "*.json", "*.gdr", "*.gdr2", "*.slc", "*.cml", "*.tcm" }
             });
         options.filters.push_back({ "Frame Window Counter (*.fwc)", { "*.fwc" } });
         options.filters.push_back({ "NANDL Calculator JSON (*.json)", { "*.json" } });
         options.filters.push_back({ "GD Replay / Silicate (*.gdr, *.gdr2, *.slc)", { "*.gdr", "*.gdr2", "*.slc" } });
         options.filters.push_back({ "xdBot Macro (*.cml)", { "*.cml" } });
+        options.filters.push_back({ "TCBot Macro (*.tcm)", { "*.tcm" } });
 
         async::spawn(
             file::pick(file::PickMode::OpenFile, options),
