@@ -663,15 +663,8 @@ void FrameActionPopup::onTogglePlayer(CCObject* sender) {
     action.isPlayer2 = !action.isPlayer2;
     bool isP2 = action.isPlayer2;
 
-    auto it = std::lower_bound(g_tickActionsCache.begin(), g_tickActionsCache.end(), action.frame,
-        [](const FrameAction& a, int frame) { return a.frame < frame; });
-    while (it != g_tickActionsCache.end() && it->frame == action.frame) {
-        if (it->isPlayer2 != isP2 && std::abs(it->frameWindow - action.frameWindow) < 1e-6 && it->ifCount == action.ifCount) {
-            it->isPlayer2 = isP2;
-            break;
-        }
-        ++it;
-    }
+    // Rebuild from the keyed source so duplicate records cannot update the wrong player.
+    updateTickCache();
 
     if (auto spr = typeinfo_cast<ButtonSprite*>(btn->getNormalImage())) {
         spr->setString(isP2 ? "2P" : "1P");

@@ -15,6 +15,7 @@
 #include <fstream>
 #include <filesystem>
 #include <algorithm>
+#include <cmath>
 #include <optional>
 #include <span>
 #include <unordered_map>
@@ -128,6 +129,8 @@ namespace FileIO {
             if (ext == ".fwc") {
                 std::ifstream f(path.string(), std::ios::binary);
                 if (!f) throw std::runtime_error("Cannot open .fwc file");
+                // Reject incomplete reads instead of importing default-valued records.
+                f.exceptions(std::ios::failbit | std::ios::badbit);
                 char magic[5] = { 0 };
                 f.read(magic, 4);
                 std::string magicStr(magic);
@@ -137,9 +140,23 @@ namespace FileIO {
                 if (!isLegacy && !isNew) throw std::runtime_error("Invalid binary FWC file signature");
 
                 f.read(reinterpret_cast<char*>(&parsedFps), sizeof(double));
+                if (!std::isfinite(parsedFps) || parsedFps <= 0.0) {
+                    throw std::runtime_error("Invalid FPS in binary FWC file");
+                }
                 updateFps = true;
                 uint32_t count = 0;
                 f.read(reinterpret_cast<char*>(&count), sizeof(uint32_t));
+
+                const auto payloadStart = f.tellg();
+                f.seekg(0, std::ios::end);
+                const std::streamoff remainingBytes = f.tellg() - payloadStart;
+                f.seekg(payloadStart);
+                const uint64_t recordSize = sizeof(int32_t) + sizeof(uint8_t) +
+                    (isLegacy ? sizeof(int32_t) : sizeof(double) + sizeof(int32_t));
+                if (remainingBytes < 0 || static_cast<uint64_t>(count) >
+                    static_cast<uint64_t>(remainingBytes) / recordSize) {
+                    throw std::runtime_error("Truncated binary FWC file");
+                }
 
                 for (uint32_t i = 0; i < count; ++i) {
                     int32_t frame = 0;

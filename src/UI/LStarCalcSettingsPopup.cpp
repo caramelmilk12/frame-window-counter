@@ -1,6 +1,7 @@
 #include "LStarCalcSettingsPopup.hpp"
 #include "../Data/State.hpp"
 #include "../Common.hpp"
+#include "../Math/Calculator.hpp"
 
 using namespace geode::prelude;
 
@@ -83,6 +84,7 @@ void LStarCalcSettingsPopup::saveInputs() {
 
     if (newFps != g_macroFps || newRespawn != g_respawnTime || newTarget != g_targetTime ||
         newKt != g_kT || newKu != g_kU || newKc != g_kC) {
+        stopGlobalRecalc();
         g_isLStarDirty = true;
     }
 
