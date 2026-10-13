@@ -45,6 +45,7 @@ void resetCalcSettingsToDefault() {
     if (g_macroFps != DEFAULT_MACRO_FPS || g_respawnTime != DEFAULT_RESPAWN_TIME ||
         g_targetTime != DEFAULT_TARGET_TIME || g_kT != DEFAULT_K_T ||
         g_kU != DEFAULT_K_U || g_kC != DEFAULT_K_C) {
+        stopGlobalRecalc();
         g_isLStarDirty = true;
     }
     g_macroFps = DEFAULT_MACRO_FPS;

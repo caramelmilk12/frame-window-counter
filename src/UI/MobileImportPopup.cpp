@@ -60,7 +60,7 @@ void MobileImportPopup::scanFiles() {
     std::filesystem::create_directories(exportDir, ec);
 
     auto isMacroExt = [](const std::string& ext) {
-        return ext == ".fwc" || ext == ".json" || ext == ".gdr" || ext == ".gdr2" || ext == ".slc" || ext == ".cml";
+        return ext == ".fwc" || ext == ".json" || ext == ".gdr" || ext == ".gdr2" || ext == ".slc" || ext == ".cml" || ext == ".tcm";
         };
 
     // 1. 扫描 imports 文件夹
